@@ -3,10 +3,9 @@ export const WISHES = [
   // ... old simple wishes kept as backup if needed, but primary focus is SYNCED_WISHES
 ];
 
-// Đường dẫn file ghi âm. 
-// Đã thay đổi sang link online để tránh lỗi nếu không có file local. 
-// Bạn có thể thay lại thành "/loichuc.mp3" nếu đã copy file vào thư mục public.
-export const VOICE_URL = "https://cdn.pixabay.com/audio/2022/12/12/audio_34b3e89582.mp3"; 
+// Đường dẫn file ghi âm.
+// Đã trỏ về file nội bộ của bạn. Hãy đảm bảo tên file là 'loichuc.mp3' chính xác.
+export const VOICE_URL = "/loichuc.mp3"; 
 
 export const COLORS = [
   '#FF0000', // Red
