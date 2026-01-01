@@ -12,6 +12,25 @@ declare global {
   }
 }
 
+// --- HELPER: Convert Google Drive View Link to Direct Link ---
+const getProcessedVoiceUrl = (url: string) => {
+  if (!url) return "";
+  
+  // Check if it is a Google Drive View Link
+  if (url.includes("drive.google.com") && url.includes("/file/d/")) {
+    try {
+      // Extract ID between /file/d/ and the next /
+      const id = url.split("/file/d/")[1].split("/")[0];
+      // Return direct download format
+      return `https://drive.google.com/uc?export=download&id=${id}`;
+    } catch (e) {
+      console.warn("Could not parse Google Drive URL, using original.");
+      return url;
+    }
+  }
+  return url;
+};
+
 const App: React.FC = () => {
   // Stage 0: Waiting for user interaction (Browser Autoplay Policy)
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -24,10 +43,14 @@ const App: React.FC = () => {
   // Track if voice file fails to load
   const [voiceError, setVoiceError] = useState(false);
   
+  // Custom audio file upload state
+  const [customVoiceUrl, setCustomVoiceUrl] = useState<string | null>(null);
+  
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
   const voiceRef = useRef<HTMLAudioElement>(null); // Voiceover Ref lifted to App
   const playerRef = useRef<any>(null); // YouTube Player Reference
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- YouTube API Initialization ---
   useEffect(() => {
@@ -166,29 +189,57 @@ const App: React.FC = () => {
     }
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        const objectUrl = URL.createObjectURL(file);
+        setCustomVoiceUrl(objectUrl);
+        setVoiceError(false);
+        // Reset mute if it was muted
+        if (voiceRef.current) {
+            voiceRef.current.src = objectUrl;
+            voiceRef.current.load();
+        }
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
       
       {/* Hidden YouTube Player */}
       <div id="youtube-player" className="absolute pointer-events-none opacity-0 -z-50"></div>
       
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        accept="audio/*" 
+        className="hidden" 
+      />
+
       {/* Audio Elements */}
       <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" />
       
       {/* 
           VOICE AUDIO TAG 
-          Using string path from constants. Do NOT import mp3 files directly in ESM.
+          Uses custom uploaded URL if available, OR processes the Google Drive URL from constants.
+          NOTE: Removed crossOrigin="anonymous" to allow opaque responses from Google Drive (fix for 403/CORS issues)
       */}
       <audio 
         ref={voiceRef} 
-        src={VOICE_URL} 
+        src={customVoiceUrl || getProcessedVoiceUrl(VOICE_URL)} 
         preload="auto" 
         onCanPlay={() => console.log("✅ Voice audio loaded successfully!")}
         onError={(e) => {
             // If audio fails, we log it and set state so Wishes component knows to use fallback
             setVoiceError(true);
             const target = e.target as HTMLAudioElement;
-            console.warn("⚠️ Voice audio failed to load (404/Network). App will continue with text timer fallback.", target.error?.code);
+            console.warn("⚠️ Voice audio failed to load. App will continue with text timer fallback.", target.error?.code);
         }} 
       />
 
@@ -206,29 +257,51 @@ const App: React.FC = () => {
                 >
                     Chạm để bắt đầu
                 </button>
-                <p className="text-gray-400 text-sm font-light italic">Bật âm thanh để có trải nghiệm tốt nhất</p>
+                <div className="flex flex-col gap-2">
+                    <p className="text-gray-400 text-sm font-light italic">Bật âm thanh để có trải nghiệm tốt nhất</p>
+                    {/* Fallback upload button on Start Screen */}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); triggerFileUpload(); }}
+                        className="text-xs text-yellow-500 underline hover:text-yellow-400 mt-2 z-10"
+                    >
+                       Link bị lỗi? Bấm vào đây để chọn file nhạc từ máy
+                    </button>
+                </div>
             </div>
         </div>
       )}
 
-      {/* Mute Button */}
+      {/* Controls: Mute + Upload */}
       {hasInteracted && (
-        <button 
-            onClick={toggleMute}
-            className="absolute top-4 right-4 z-50 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors"
-        >
-            {isMuted ? (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 21 12m0 0-3.75 2.25M21 12H3m3.375-3.375-1.5-1.5m6.75 9.75-1.5 1.5" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75c0-1.33.72-2.5 1.809-3.125A12 12 0 0 0 12 6C9.274 6 6.758 6.94 4.8 8.527" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-            </svg>
-            ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 animate-pulse">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-            </svg>
-            )}
-        </button>
+        <div className="absolute top-4 right-4 z-50 flex gap-2">
+            <button 
+                onClick={triggerFileUpload}
+                title="Chọn file nhạc từ máy tính/điện thoại"
+                className="p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors group"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 group-hover:text-yellow-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l3 3-3 3m0-6h6m-6 0V5m6 14v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+            </button>
+
+            <button 
+                onClick={toggleMute}
+                className="p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors"
+            >
+                {isMuted ? (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 21 12m0 0-3.75 2.25M21 12H3m3.375-3.375-1.5-1.5m6.75 9.75-1.5 1.5" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75c0-1.33.72-2.5 1.809-3.125A12 12 0 0 0 12 6C9.274 6 6.758 6.94 4.8 8.527" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                </svg>
+                ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 animate-pulse">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                </svg>
+                )}
+            </button>
+        </div>
       )}
 
       {/* 

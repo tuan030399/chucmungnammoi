@@ -19,8 +19,9 @@ export const YOUTUBE_VIDEO_ID = "CameKc-m39k";
 // Clock ticking sound - Switched to MP3 for better compatibility (Safari often fails with OGG)
 export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
 
-// Voice URL - Updated to user provided GitHub link (converted to raw for playback)
-export const VOICE_URL = "https://raw.githubusercontent.com/tuan030399/chucmungnammoi/main/loichuc.mp3";
+// Voice URL
+// Link CDN JSDelivr từ GitHub (Ổn định nhất, không bị lỗi 403 Forbidden như Google Drive)
+export const VOICE_URL = "https://cdn.jsdelivr.net/gh/tuan030399/chucmungnammoi@main/loichuc.mp3";
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
