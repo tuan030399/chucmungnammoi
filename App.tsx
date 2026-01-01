@@ -5,6 +5,8 @@ import Wishes from './components/Wishes';
 import { MUSIC_URL, TICK_SOUND_URL } from './constants';
 
 const App: React.FC = () => {
+  console.log("App Component Rendering..."); // Debug log
+
   // Stage 1: Transition starts (Music + Fireworks begin)
   const [isTransitionStarting, setIsTransitionStarting] = useState(false);
   // Stage 2: Animation is fully done, Countdown component is unmounted
@@ -60,11 +62,13 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    console.log("App Mounted");
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
         const playPromise = tickRef.current.play();
         if (playPromise !== undefined) {
             playPromise.catch(() => {
+                console.log("Autoplay prevented");
                 setIsMuted(true);
                 if (tickRef.current) tickRef.current.muted = true;
                 if (musicRef.current) musicRef.current.muted = true;

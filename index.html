@@ -16,9 +16,9 @@
       body {
         margin: 0;
         overflow: hidden;
-        background-color: #000;
+        background-color: #000; /* Fallback color */
         font-family: 'Montserrat', sans-serif;
-        color: white; /* Default text color fallback */
+        color: white;
       }
       .font-script {
         font-family: 'Dancing Script', cursive;
@@ -36,5 +36,7 @@
 </head>
   <body>
     <div id="root"></div>
+    <!-- CRITICAL: Entry point for the React application -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
