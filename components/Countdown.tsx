@@ -2,16 +2,16 @@ import React, { useEffect, useState } from 'react';
 import FallingEffects from './FallingEffects';
 
 interface CountdownProps {
-  onTimerComplete: () => void; // Called when transition STARTS (Music + Fireworks)
-  onZoomComplete: () => void;  // Called when transition ENDS (Unmount)
-  onCountFinished: () => void; // Called when counter hits 00 (Stop Ticking)
+  onTimerComplete: () => void;
+  onZoomComplete: () => void;
+  onCountFinished: () => void;
 }
 
 const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, onCountFinished }) => {
-  // Start at 55. Display 55 -> ... -> 59 -> 00
   const [seconds, setSeconds] = useState(55);
   const [isExiting, setIsExiting] = useState(false);
   const [pop, setPop] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   const prefix = "202";
   const suffixCurrent = "5";
@@ -21,17 +21,14 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
   useEffect(() => {
     const interval = setInterval(() => {
       setSeconds((prev) => {
-        if (prev < 60) {
-          return prev + 1;
-        }
+        if (prev < 60) return prev + 1;
         return prev;
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Pop Effect Logic (Moved to useEffect for stability)
+  // 2. Pop Effect Logic
   useEffect(() => {
     setPop(true);
     const timeout = setTimeout(() => setPop(false), 200);
@@ -41,81 +38,66 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
   // 3. Transition Logic
   useEffect(() => {
     if (seconds === 60) {
-      // Step A: Immediately stop the ticking sound
       onCountFinished();
-
-      // Step B: Wait exactly 1 second while showing "2026"
       const startTransitionTimeout = setTimeout(() => {
-        
-        // 1. Start the Visual Transition (CSS class)
         setIsExiting(true);
-        
-        // 2. Fire the signals (Music, Fireworks start NOW)
         onTimerComplete();
-
-        // 3. Wait for the visual transition to finish (1.5s), then unmount
         const cleanupTimeout = setTimeout(() => {
           onZoomComplete();
-        }, 1500); // Matches CSS duration
-
+        }, 1500);
         return () => clearTimeout(cleanupTimeout);
-
-      }, 1000); // 1s delay before moving
-
+      }, 1000);
       return () => clearTimeout(startTransitionTimeout);
     }
   }, [seconds, onCountFinished, onTimerComplete, onZoomComplete]);
 
-  // Display Logic
   const displaySeconds = seconds === 60 ? "00" : seconds.toString();
 
   return (
-    // CONTAINER
-    // Added bg-gradient as fallback if image fails
-    // Fixed z-index stacking
+    // CONTAINER with explicit inline styles as failsafe
     <div 
-        className={`w-full h-full relative flex flex-col items-center justify-center overflow-hidden transition-all duration-[1500ms] ease-in-out origin-center bg-gradient-to-b from-red-900 via-stone-900 to-black ${
+        className={`w-full h-full relative flex flex-col items-center justify-center overflow-hidden transition-all duration-[1500ms] ease-in-out origin-center bg-gradient-to-b from-red-800 via-red-950 to-black ${
             isExiting ? 'opacity-0 scale-[2] blur-sm pointer-events-none' : 'opacity-100 scale-100'
         }`}
+        style={{ color: 'white' }}
     >
       
-      {/* BACKGROUND IMAGE & EFFECTS */}
-      <div className="absolute inset-0 z-0">
+      {/* BACKGROUND IMAGE - Only show when loaded to prevent ugly cutouts */}
+      <div className="absolute inset-0 z-0 bg-red-900/20">
         <img 
             src="https://images.unsplash.com/photo-1514416432279-50fac261ea7f?q=80&w=2592&auto=format&fit=crop" 
-            alt="Tet Background Lanterns" 
-            className="w-full h-full object-cover brightness-50 opacity-80"
-            onError={(e) => {
-              // Fallback if image fails
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
+            alt="Tet Background" 
+            className={`w-full h-full object-cover transition-opacity duration-1000 ${isImageLoaded ? 'opacity-60' : 'opacity-0'}`}
+            onLoad={() => setIsImageLoaded(true)}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
-        <div className="absolute inset-0 bg-black/20"></div>
+        {/* Dark Overlay for text contrast */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60"></div>
       </div>
 
-      {/* FALLING EFFECTS (Z-Index 1) */}
+      {/* FALLING EFFECTS */}
       <div className="absolute inset-0 z-10 pointer-events-none">
           <FallingEffects />
       </div>
 
-      {/* MAIN CONTENT (Z-Index 20 - Always on top) */}
-      <div className="z-20 flex flex-col items-center gap-6 md:gap-10 relative">
+      {/* MAIN CONTENT */}
+      <div className="z-20 flex flex-col items-center gap-4 md:gap-10 relative px-4 w-full max-w-4xl mx-auto">
         
         {/* Label */}
-        <div className="text-yellow-400 text-sm md:text-xl font-bold tracking-[0.5em] mb-4 uppercase font-sans border-b border-yellow-500/50 pb-4 drop-shadow-md text-center px-4">
+        <div className="text-yellow-400 text-sm md:text-xl font-bold tracking-[0.3em] md:tracking-[0.5em] mb-2 uppercase font-sans border-b border-yellow-500/50 pb-4 text-center">
           Thời khắc giao thừa
         </div>
 
         {/* Date Row */}
-        <div className="flex items-center justify-center gap-4 md:gap-6 bg-black/60 p-6 md:p-8 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] mx-4">
+        <div className="w-full flex items-center justify-center gap-2 md:gap-6 bg-white/10 p-4 md:p-8 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-lg">
             <div className="flex flex-col items-center">
-                <span className="text-4xl md:text-6xl font-bold text-gray-200 tabular-nums font-mono">31</span>
-                <span className="text-xs md:text-sm text-yellow-500/70 uppercase tracking-wider mt-1">Tháng 12</span>
+                <span className="text-2xl md:text-5xl font-bold text-gray-100 font-mono">31</span>
+                <span className="text-[10px] md:text-sm text-yellow-500/80 uppercase tracking-wider mt-1">Tháng 12</span>
             </div>
-            <span className="text-3xl md:text-5xl text-gray-500 font-light opacity-50">|</span>
+            <span className="text-2xl md:text-4xl text-gray-500 font-light opacity-50 px-2">|</span>
             {/* Year with Roll */}
-            <div className="flex flex-col items-center relative">
-                <div className="flex items-baseline relative text-4xl md:text-6xl font-bold text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]">
+            <div className="flex flex-col items-center">
+                <div className="flex items-baseline relative text-2xl md:text-5xl font-bold text-yellow-400">
                     <span>{prefix}</span>
                     <div className="relative h-[1.1em] overflow-hidden ml-1">
                         <div className={`flex flex-col transition-transform duration-[1000ms] cubic-bezier(0.34, 1.56, 0.64, 1) ${seconds === 60 ? '-translate-y-1/2' : 'translate-y-0'}`}>
@@ -124,37 +106,37 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
                         </div>
                     </div>
                 </div>
-                <span className="text-xs md:text-sm text-yellow-500/70 uppercase tracking-wider mt-1">Năm Mới</span>
+                <span className="text-[10px] md:text-sm text-yellow-500/80 uppercase tracking-wider mt-1">Năm Mới</span>
             </div>
         </div>
 
         {/* Timer Row */}
-        <div className="flex items-center justify-center gap-3 md:gap-6 bg-red-950/60 p-6 md:p-12 rounded-[3rem] backdrop-blur-xl border border-red-500/20 shadow-[0_0_60px_rgba(255,0,0,0.3)] mx-4">
+        <div className="w-full flex items-center justify-center gap-1 md:gap-4 bg-red-950/60 p-4 md:p-10 rounded-[2rem] md:rounded-[3rem] backdrop-blur-xl border border-red-500/20 shadow-2xl">
              {/* Hour */}
-             <div className="flex flex-col items-center min-w-[60px] md:min-w-[120px]">
-                <span className={`text-5xl md:text-8xl font-black text-white tabular-nums ${seconds === 60 ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.8)]' : ''}`}>
+             <div className="flex flex-col items-center w-16 md:w-32">
+                <span className={`text-4xl md:text-7xl font-black text-white tabular-nums ${seconds === 60 ? 'text-green-400' : ''}`}>
                     {seconds === 60 ? '00' : '23'}
                 </span>
-                <span className="text-[10px] md:text-sm text-red-200 uppercase tracking-widest mt-2 opacity-70">Giờ</span>
+                <span className="text-[9px] md:text-xs text-red-200 uppercase tracking-widest mt-1 opacity-70">Giờ</span>
             </div>
-            <span className="text-3xl md:text-7xl text-red-500/50 font-thin pb-4 md:pb-6">:</span>
+            <span className="text-2xl md:text-6xl text-red-500/50 font-thin -mt-4">:</span>
             {/* Minute */}
-            <div className="flex flex-col items-center min-w-[60px] md:min-w-[120px]">
-                <span className={`text-5xl md:text-8xl font-black text-white tabular-nums ${seconds === 60 ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.8)]' : ''}`}>
+            <div className="flex flex-col items-center w-16 md:w-32">
+                <span className={`text-4xl md:text-7xl font-black text-white tabular-nums ${seconds === 60 ? 'text-green-400' : ''}`}>
                     {seconds === 60 ? '00' : '59'}
                 </span>
-                <span className="text-[10px] md:text-sm text-red-200 uppercase tracking-widest mt-2 opacity-70">Phút</span>
+                <span className="text-[9px] md:text-xs text-red-200 uppercase tracking-widest mt-1 opacity-70">Phút</span>
             </div>
-            <span className="text-3xl md:text-7xl text-red-500/50 font-thin pb-4 md:pb-6">:</span>
+            <span className="text-2xl md:text-6xl text-red-500/50 font-thin -mt-4">:</span>
             {/* Second */}
-            <div className="flex flex-col items-center min-w-[70px] md:min-w-[140px]">
-                <span className={`text-6xl md:text-9xl font-black tabular-nums transition-transform duration-200 
+            <div className="flex flex-col items-center w-20 md:w-40">
+                <span className={`text-5xl md:text-8xl font-black tabular-nums transition-transform duration-200 
                     ${pop ? 'scale-110' : 'scale-100'} 
-                    ${seconds === 60 ? 'text-white' : 'text-red-500 drop-shadow-[0_0_30px_rgba(239,68,68,0.8)]'}
+                    ${seconds === 60 ? 'text-white' : 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]'}
                 `}>
                     {displaySeconds}
                 </span>
-                <span className="text-[10px] md:text-sm text-red-400 uppercase tracking-widest mt-2 font-bold">Giây</span>
+                <span className="text-[9px] md:text-xs text-red-400 uppercase tracking-widest mt-1 font-bold">Giây</span>
             </div>
         </div>
 
