@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SYNCED_WISHES, VOICE_URL } from '../constants';
+import { SYNCED_WISHES } from '../constants';
 
 interface WishesProps {
   isActive: boolean;
+  voiceRef: React.RefObject<HTMLAudioElement | null>;
 }
 
-const Wishes: React.FC<WishesProps> = ({ isActive }) => {
+const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef }) => {
   const [activeIndex, setActiveIndex] = useState(-1);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const animationFrameRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const isFallbackMode = useRef<boolean>(false);
@@ -33,9 +33,16 @@ const Wishes: React.FC<WishesProps> = ({ isActive }) => {
       const now = Date.now() / 1000;
       const elapsed = now - startTimeRef.current;
       checkTime(elapsed);
-    } else if (audioRef.current) {
-      // Normal: Use audio time
-      checkTime(audioRef.current.currentTime);
+    } else if (voiceRef.current && !voiceRef.current.paused) {
+      // Normal: Use audio time from parent ref
+      checkTime(voiceRef.current.currentTime);
+    } else if (isActive && (!voiceRef.current || voiceRef.current.paused)) {
+       // Audio exists but isn't playing yet, or finished. 
+       // If it should be active but audio isn't moving, we might need fallback 
+       // BUT we wait a bit or check if it ended.
+       if (voiceRef.current && voiceRef.current.ended) {
+           // Do nothing, keep last state
+       }
     }
     
     animationFrameRef.current = requestAnimationFrame(updateLoop);
@@ -46,42 +53,29 @@ const Wishes: React.FC<WishesProps> = ({ isActive }) => {
       // Start the loop
       cancelAnimationFrame(animationFrameRef.current);
       updateLoop();
-
-      if (audioRef.current) {
-        audioRef.current.volume = 1.0;
-        const playPromise = audioRef.current.play();
-        
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            console.log("Voice play failed or blocked, switching to fallback timer:", error);
-            // Switch to fallback timer immediately if play fails
-            isFallbackMode.current = true;
-            startTimeRef.current = Date.now() / 1000;
-          });
-        }
-      }
+      
+      // We don't play audio here anymore. App.tsx plays it.
+      // We just monitor it.
+      
+      // Fallback safety: If after 1 second, audio hasn't started (currentTime is still 0 or paused), enable fallback
+      const safetyTimeout = setTimeout(() => {
+          if (voiceRef.current && (voiceRef.current.paused || voiceRef.current.currentTime === 0)) {
+              console.log("Audio didn't start in time. Using fallback timer for text.");
+              isFallbackMode.current = true;
+              startTimeRef.current = Date.now() / 1000;
+          }
+      }, 1500); // Wait 1.5s for audio to possibly load/start
+      
+      return () => clearTimeout(safetyTimeout);
     }
 
     return () => {
       cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [isActive]);
-
-  const handleAudioError = () => {
-    console.log("Audio file not found or error. Using fallback timer.");
-    isFallbackMode.current = true;
-    startTimeRef.current = Date.now() / 1000;
-  };
+  }, [isActive, voiceRef]);
 
   return (
     <div className="z-20 w-full max-w-5xl px-4 text-center mt-2 relative">
-      <audio 
-        ref={audioRef} 
-        src={VOICE_URL} 
-        onError={handleAudioError}
-        onEnded={() => cancelAnimationFrame(animationFrameRef.current)}
-      />
-
       <div className="flex flex-col gap-4 md:gap-6 items-center justify-center min-h-[300px]">
         {SYNCED_WISHES.map((item, index) => {
           const isVisible = index <= activeIndex;

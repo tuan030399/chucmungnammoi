@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Countdown from './components/Countdown';
 import Fireworks from './components/Fireworks';
 import Wishes from './components/Wishes';
-import { YOUTUBE_VIDEO_ID, TICK_SOUND_URL } from './constants';
+import { YOUTUBE_VIDEO_ID, TICK_SOUND_URL, VOICE_URL } from './constants';
 
 // Type definition for window.YT
 declare global {
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
+  const voiceRef = useRef<HTMLAudioElement>(null); // Voiceover Ref lifted to App
   const playerRef = useRef<any>(null); // YouTube Player Reference
 
   // --- YouTube API Initialization ---
@@ -56,12 +57,43 @@ const App: React.FC = () => {
   // --- Interaction Handler (Fixes Autoplay) ---
   const handleStart = () => {
     setHasInteracted(true);
+    
+    // 1. Play Ticking Sound
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
-        tickRef.current.play().catch(e => console.error("Tick play failed", e));
+        tickRef.current.play().catch(e => console.error("Tick play failed", e instanceof Error ? e.message : e));
+    }
+
+    // 2. PRIME THE VOICE AUDIO (Critical for Mobile/Safari)
+    // We play it then immediately pause it to "unlock" the audio context
+    if (voiceRef.current) {
+        try {
+            voiceRef.current.load();
+        } catch(e) {
+            console.warn("Audio load error:", e instanceof Error ? e.message : e);
+        }
+        
+        const playPromise = voiceRef.current.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    // Immediately pause and rewind. We just needed the permission.
+                    voiceRef.current?.pause();
+                    if (voiceRef.current) voiceRef.current.currentTime = 0;
+                })
+                .catch(error => {
+                    // Swallow specific errors related to missing sources to prevent UI noise
+                    const errMsg = error instanceof Error ? error.message : String(error);
+                    if (error.name === 'NotSupportedError' || errMsg.includes('no supported sources')) {
+                        console.warn("Voice priming skipped: Audio source missing or unsupported. Fallback timer will be used.");
+                    } else {
+                        console.error("Voice priming failed:", errMsg);
+                    }
+                });
+        }
     }
     
-    // Warm up player
+    // 3. Warm up YouTube player
     if (playerRef.current && playerRef.current.playVideo) {
         playerRef.current.playVideo();
         setTimeout(() => {
@@ -99,6 +131,22 @@ const App: React.FC = () => {
         
         playerRef.current.playVideo();
     }
+
+    // Play Voiceover
+    if (voiceRef.current) {
+        voiceRef.current.volume = 1.0;
+        const playPromise = voiceRef.current.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                 const errMsg = error instanceof Error ? error.message : String(error);
+                 if (error.name === 'NotSupportedError' || errMsg.includes('no supported sources')) {
+                    console.warn("Final voice play skipped: Source missing. Text will animate via Wishes fallback.");
+                } else {
+                    console.error("Final voice play failed", errMsg);
+                }
+            });
+        }
+    }
   };
 
   // 3. Called when Transition ENDS (1.5s later)
@@ -123,6 +171,11 @@ const App: React.FC = () => {
     if (tickRef.current) {
         tickRef.current.muted = nextMuteState;
     }
+
+    // Toggle Voice
+    if (voiceRef.current) {
+        voiceRef.current.muted = nextMuteState;
+    }
   };
 
   return (
@@ -131,8 +184,10 @@ const App: React.FC = () => {
       {/* Hidden YouTube Player */}
       <div id="youtube-player" className="absolute pointer-events-none opacity-0 -z-50"></div>
       
-      {/* Ticking Sound */}
-      <audio ref={tickRef} src={TICK_SOUND_URL} loop />
+      {/* Audio Elements */}
+      <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" />
+      {/* Fixed: Avoid logging 'e' (SyntheticEvent) directly to prevent circular structure error */}
+      <audio ref={voiceRef} src={VOICE_URL} preload="auto" onError={() => console.warn("Audio tag error: Failed to load voice resource")} />
 
       {/* --- START OVERLAY --- */}
       {!hasInteracted && (
@@ -204,9 +259,9 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Wishes Component now handles Voice and Text Sync */}
+              {/* Wishes Component now uses the voiceRef from App */}
               <div className="animate-[fadeIn_1s_ease-in_0.5s_forwards] w-full flex justify-center">
-                  <Wishes isActive={isTransitionStarting} />
+                  <Wishes isActive={isTransitionStarting} voiceRef={voiceRef} />
               </div>
             </div>
       </div>
