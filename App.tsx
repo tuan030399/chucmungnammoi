@@ -28,13 +28,11 @@ const App: React.FC = () => {
 
   // --- YouTube API Initialization ---
   useEffect(() => {
-    // 1. Load the IFrame Player API code asynchronously.
     const tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     const firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
-    // 2. This function creates an <iframe> (and YouTube player) after the API code downloads.
     window.onYouTubeIframeAPIReady = () => {
       playerRef.current = new window.YT.Player('youtube-player', {
         height: '0',
@@ -44,12 +42,10 @@ const App: React.FC = () => {
           'playsinline': 1,
           'controls': 0,
           'loop': 1,
-          'playlist': YOUTUBE_VIDEO_ID // Required for loop to work
+          'playlist': YOUTUBE_VIDEO_ID
         },
         events: {
           'onReady': (event: any) => {
-             // Player is ready but waiting for command
-             // We can set volume here
              event.target.setVolume(100);
           }
         }
@@ -60,14 +56,12 @@ const App: React.FC = () => {
   // --- Interaction Handler (Fixes Autoplay) ---
   const handleStart = () => {
     setHasInteracted(true);
-    // Play ticking sound immediately
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
         tickRef.current.play().catch(e => console.error("Tick play failed", e));
     }
     
-    // "Warm up" the YouTube player (mobile devices sometimes require this)
-    // We play and immediately pause to initialize the audio context for the iframe
+    // Warm up player
     if (playerRef.current && playerRef.current.playVideo) {
         playerRef.current.playVideo();
         setTimeout(() => {
@@ -94,11 +88,16 @@ const App: React.FC = () => {
     if (playerRef.current && playerRef.current.playVideo) {
         if (!isMuted) {
             playerRef.current.unMute();
-            playerRef.current.playVideo();
         } else {
             playerRef.current.mute();
-            playerRef.current.playVideo();
         }
+        
+        // IMPORTANT: Lower background music volume so Voiceover is clear
+        if (typeof playerRef.current.setVolume === 'function') {
+            playerRef.current.setVolume(20); // 20% Volume for background
+        }
+        
+        playerRef.current.playVideo();
     }
   };
 
@@ -132,10 +131,10 @@ const App: React.FC = () => {
       {/* Hidden YouTube Player */}
       <div id="youtube-player" className="absolute pointer-events-none opacity-0 -z-50"></div>
       
-      {/* Ticking Sound (Standard Audio) */}
+      {/* Ticking Sound */}
       <audio ref={tickRef} src={TICK_SOUND_URL} loop />
 
-      {/* --- START OVERLAY (Required for Autoplay) --- */}
+      {/* --- START OVERLAY --- */}
       {!hasInteracted && (
         <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 transition-opacity duration-500">
             <div className="text-center space-y-6 animate-pulse">
@@ -154,7 +153,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Mute Button (Only show after interaction) */}
+      {/* Mute Button */}
       {hasInteracted && (
         <button 
             onClick={toggleMute}
@@ -177,10 +176,9 @@ const App: React.FC = () => {
       {/* 
           LAYER 0: CELEBRATION CONTENT 
           Always rendered at the bottom.
-          Animation: Scales UP slightly (0.9 -> 1.0) and Fades IN as Countdown fades out.
       */}
       <div className={`absolute inset-0 z-0 flex flex-col items-center justify-center transition-all duration-[1500ms] ease-in-out ${isTransitionStarting ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
-            {/* Celebration Background Image */}
+            {/* Celebration Background */}
             <div className="absolute inset-0 z-0">
                 <img 
                     src="https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2669&auto=format&fit=crop" 
@@ -190,32 +188,30 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 bg-black/50 bg-gradient-to-t from-red-900/80 via-transparent to-black/60"></div>
             </div>
             
-            {/* Fireworks start exactly when transition starts */}
+            {/* Fireworks */}
             {isTransitionStarting && <Fireworks />}
             
             {/* Content Container */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
-              <div className="mb-6 relative animate-[bounce_3s_infinite_1s]">
-                <h1 className="text-5xl md:text-7xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-red-500 to-yellow-300 drop-shadow-[0_0_35px_rgba(234,179,8,0.8)] text-center tracking-tighter filter hue-rotate-15">
+            <div className="absolute inset-0 flex flex-col items-center pt-10 md:pt-20 p-4 z-10 overflow-y-auto md:overflow-hidden">
+              <div className="mb-4 md:mb-8 relative animate-[bounce_3s_infinite_1s] shrink-0">
+                {/* BIGGER AND HIGHER TITLE */}
+                <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-red-500 to-yellow-300 drop-shadow-[0_0_50px_rgba(234,179,8,1)] text-center tracking-tighter filter hue-rotate-15 leading-tight">
                   CHÚC MỪNG <br className="md:hidden" /> NĂM MỚI
                 </h1>
                 
-                <div className="absolute -top-4 -right-4 md:-right-10 bg-yellow-500 text-red-900 font-bold px-4 py-2 rounded-full text-xl md:text-2xl rotate-12 shadow-[0_0_20px_rgba(234,179,8,1)] animate-pulse border-2 border-red-600">
+                <div className="absolute -top-6 -right-4 md:-right-12 bg-yellow-500 text-red-900 font-bold px-4 py-2 rounded-full text-xl md:text-3xl rotate-12 shadow-[0_0_20px_rgba(234,179,8,1)] animate-pulse border-4 border-red-600">
                   {new Date().getFullYear() + 1}
                 </div>
               </div>
 
-              <div className="animate-[fadeIn_2s_ease-in_0.5s_forwards]">
-                  <Wishes />
+              {/* Wishes Component now handles Voice and Text Sync */}
+              <div className="animate-[fadeIn_1s_ease-in_0.5s_forwards] w-full flex justify-center">
+                  <Wishes isActive={isTransitionStarting} />
               </div>
             </div>
       </div>
 
-      {/* 
-          LAYER 1: COUNTDOWN
-          Sits on top. Handles its own fade-out internally via props from handleTimerComplete logic inside Countdown.
-          We remove it from DOM only after animation finishes to save resources.
-      */}
+      {/* LAYER 1: COUNTDOWN */}
       {!isZoomFinished && hasInteracted && (
         <div className="absolute inset-0 z-20">
             <Countdown 

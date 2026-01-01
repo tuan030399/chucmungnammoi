@@ -1,39 +1,120 @@
-import React, { useState, useEffect } from 'react';
-import { WISHES } from '../constants';
+import React, { useState, useEffect, useRef } from 'react';
+import { SYNCED_WISHES, VOICE_URL } from '../constants';
 
-const Wishes: React.FC = () => {
-  const [index, setIndex] = useState(0);
-  const [fade, setFade] = useState(true);
+interface WishesProps {
+  isActive: boolean;
+}
+
+const Wishes: React.FC<WishesProps> = ({ isActive }) => {
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const animationFrameRef = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
+  const isFallbackMode = useRef<boolean>(false);
+
+  // Function to determine which line should be active
+  const checkTime = (currentTime: number) => {
+    let currentLine = -1;
+    for (let i = 0; i < SYNCED_WISHES.length; i++) {
+      // Add a small buffer (0.1s) to make sure the first line shows immediately
+      if (currentTime >= SYNCED_WISHES[i].startTime - 0.1) {
+        currentLine = i;
+      } else {
+        break;
+      }
+    }
+    setActiveIndex((prev) => (currentLine !== prev ? currentLine : prev));
+  };
+
+  // Loop for smooth updates
+  const updateLoop = () => {
+    if (isFallbackMode.current) {
+      // Fallback: Use system time if audio failed
+      const now = Date.now() / 1000;
+      const elapsed = now - startTimeRef.current;
+      checkTime(elapsed);
+    } else if (audioRef.current) {
+      // Normal: Use audio time
+      checkTime(audioRef.current.currentTime);
+    }
+    
+    animationFrameRef.current = requestAnimationFrame(updateLoop);
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFade(false); // Start fading out
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % WISHES.length);
-        setFade(true); // Fade back in
-      }, 1000); // Wait for fade out to finish
-    }, 4000); // Change wish every 4 seconds
+    if (isActive) {
+      // Start the loop
+      cancelAnimationFrame(animationFrameRef.current);
+      updateLoop();
 
-    return () => clearInterval(interval);
-  }, []);
+      if (audioRef.current) {
+        audioRef.current.volume = 1.0;
+        const playPromise = audioRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.log("Voice play failed or blocked, switching to fallback timer:", error);
+            // Switch to fallback timer immediately if play fails
+            isFallbackMode.current = true;
+            startTimeRef.current = Date.now() / 1000;
+          });
+        }
+      }
+    }
+
+    return () => {
+      cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [isActive]);
+
+  const handleAudioError = () => {
+    console.log("Audio file not found or error. Using fallback timer.");
+    isFallbackMode.current = true;
+    startTimeRef.current = Date.now() / 1000;
+  };
 
   return (
-    <div className="z-20 w-full max-w-4xl px-4 text-center mt-8 md:mt-16">
-      <div 
-        className={`transition-all duration-1000 ease-in-out transform ${
-          fade ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
-        }`}
-      >
-        <div className="relative inline-block">
-            {/* Decorative Quotes */}
-            <span className="absolute -top-6 -left-8 text-6xl text-yellow-500 opacity-50 font-serif">“</span>
-            
-            <p className="text-3xl md:text-5xl lg:text-6xl text-yellow-100 font-script leading-relaxed drop-shadow-md text-balance">
-            {WISHES[index]}
-            </p>
-            
-            <span className="absolute -bottom-10 -right-8 text-6xl text-yellow-500 opacity-50 font-serif">”</span>
-        </div>
+    <div className="z-20 w-full max-w-5xl px-4 text-center mt-2 relative">
+      <audio 
+        ref={audioRef} 
+        src={VOICE_URL} 
+        onError={handleAudioError}
+        onEnded={() => cancelAnimationFrame(animationFrameRef.current)}
+      />
+
+      <div className="flex flex-col gap-4 md:gap-6 items-center justify-center min-h-[300px]">
+        {SYNCED_WISHES.map((item, index) => {
+          const isVisible = index <= activeIndex;
+          const isCurrent = index === activeIndex;
+
+          return (
+            <div 
+              key={index}
+              className={`transition-all duration-700 ease-out transform ${
+                isVisible 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-8'
+              }`}
+            >
+              <p 
+                className={`
+                  font-script text-2xl md:text-3xl lg:text-4xl leading-relaxed text-balance
+                  transition-colors duration-500 font-bold
+                  ${isCurrent ? 'text-yellow-300 drop-shadow-[0_0_15px_rgba(253,224,71,1)] scale-105' : 'text-yellow-100 scale-100'}
+                  ${index === SYNCED_WISHES.length - 1 ? 'text-red-500 mt-4 text-3xl md:text-5xl drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]' : ''}
+                `}
+                style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}
+              >
+                {item.text}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Decorative Heart */}
+      <div className={`mt-8 text-red-500 animate-bounce text-4xl transition-opacity duration-1000 ${activeIndex >= 0 ? 'opacity-100' : 'opacity-0'}`}>
+         ♥
       </div>
     </div>
   );

@@ -1,15 +1,11 @@
 export const WISHES = [
   "Chúc Mừng Năm Mới! An Khang Thịnh Vượng.",
-  "Vạn Sự Như Ý - Tỷ Sự Như Mơ.",
-  "Sức Khỏe Dồi Dào - Tiền Vào Như Nước.",
-  "Năm Mới Bình An - Hạnh Phúc Tràn Đầy.",
-  "Cung Hỷ Phát Tài - Tấn Tài Tấn Lộc.",
-  "Chúc bạn một năm mới rực rỡ và thành công!",
-  "Gia đình hạnh phúc, con cháu sum vầy.",
-  "Công thành danh toại, sự nghiệp thăng tiến.",
-  "Xuân này hơn hẳn mấy xuân qua. Phúc lộc đưa nhau đến từng nhà.",
-  "Mừng Tết đến, lộc đến nhà, nhà nhà no đủ."
+  // ... old simple wishes kept as backup if needed, but primary focus is SYNCED_WISHES
 ];
+
+// Đường dẫn file ghi âm. 
+// File 'loichuc.mp3' để ở thư mục gốc (ngang hàng index.html) là ĐÚNG.
+export const VOICE_URL = "/loichuc.mp3"; 
 
 export const COLORS = [
   '#FF0000', // Red
@@ -21,11 +17,39 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// YouTube Video ID (extracted from https://www.youtube.com/watch?v=CameKc-m39k)
+// YouTube Video ID
 export const YOUTUBE_VIDEO_ID = "CameKc-m39k";
 
-// Clock ticking sound
-export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2023/02/16/audio_0e6a394982.mp3";
+// Clock ticking sound - Switched to MP3 for better compatibility (Safari often fails with OGG)
+export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
 
-// Falling items (Lanterns, Flowers - Emojis for reliability)
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
+
+// Dữ liệu lời chúc đồng bộ với giọng đọc
+// 'startTime': thời điểm (giây) dòng chữ bắt đầu hiện/sáng lên trong file ghi âm
+export const SYNCED_WISHES = [
+  {
+    startTime: 0,
+    text: "Em Tuấn kính chúc quý cô chú anh chị, các bạn, các em:"
+  },
+  {
+    startTime: 4, 
+    text: "Năm mới sức khỏe vô biên, kiếm được nhiều tiền, tình duyên phơi phới."
+  },
+  {
+    startTime: 9, 
+    text: "Chúc ai còn lẻ bóng thì sớm 'vớ' được cực phẩm,"
+  },
+  {
+    startTime: 12.5, 
+    text: "Ai đang say đắm thì nhanh chóng về dinh,"
+  },
+  {
+    startTime: 15, 
+    text: "Còn ai đã có vợ xinh thì... bớt sợ vợ một tí cho anh em được nhờ!"
+  },
+  {
+    startTime: 19, 
+    text: "Chúc mừng năm mới, vạn sự như ý, tình nồng ý hợp!"
+  }
+];
