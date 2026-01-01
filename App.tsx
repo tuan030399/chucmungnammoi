@@ -2,11 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import Countdown from './components/Countdown';
 import Fireworks from './components/Fireworks';
 import Wishes from './components/Wishes';
-import { MUSIC_URL, TICK_SOUND_URL } from './constants';
+import { YOUTUBE_VIDEO_ID, TICK_SOUND_URL } from './constants';
+
+// Type definition for window.YT
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady: () => void;
+    YT: any;
+  }
+}
 
 const App: React.FC = () => {
-  console.log("App Component Rendering..."); // Debug log
-
+  // Stage 0: Waiting for user interaction (Browser Autoplay Policy)
+  const [hasInteracted, setHasInteracted] = useState(false);
   // Stage 1: Transition starts (Music + Fireworks begin)
   const [isTransitionStarting, setIsTransitionStarting] = useState(false);
   // Stage 2: Animation is fully done, Countdown component is unmounted
@@ -14,8 +22,61 @@ const App: React.FC = () => {
   
   const [isMuted, setIsMuted] = useState(false);
   
-  const musicRef = useRef<HTMLAudioElement>(null);
+  // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
+  const playerRef = useRef<any>(null); // YouTube Player Reference
+
+  // --- YouTube API Initialization ---
+  useEffect(() => {
+    // 1. Load the IFrame Player API code asynchronously.
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+    // 2. This function creates an <iframe> (and YouTube player) after the API code downloads.
+    window.onYouTubeIframeAPIReady = () => {
+      playerRef.current = new window.YT.Player('youtube-player', {
+        height: '0',
+        width: '0',
+        videoId: YOUTUBE_VIDEO_ID,
+        playerVars: {
+          'playsinline': 1,
+          'controls': 0,
+          'loop': 1,
+          'playlist': YOUTUBE_VIDEO_ID // Required for loop to work
+        },
+        events: {
+          'onReady': (event: any) => {
+             // Player is ready but waiting for command
+             // We can set volume here
+             event.target.setVolume(100);
+          }
+        }
+      });
+    };
+  }, []);
+
+  // --- Interaction Handler (Fixes Autoplay) ---
+  const handleStart = () => {
+    setHasInteracted(true);
+    // Play ticking sound immediately
+    if (tickRef.current) {
+        tickRef.current.volume = 0.6;
+        tickRef.current.play().catch(e => console.error("Tick play failed", e));
+    }
+    
+    // "Warm up" the YouTube player (mobile devices sometimes require this)
+    // We play and immediately pause to initialize the audio context for the iframe
+    if (playerRef.current && playerRef.current.playVideo) {
+        playerRef.current.playVideo();
+        setTimeout(() => {
+            if (!isTransitionStarting) {
+                playerRef.current.pauseVideo();
+            }
+        }, 100); 
+    }
+  };
 
   // 1. Called when Countdown reaches "00" (Stop Ticking)
   const handleCountFinished = () => {
@@ -29,10 +90,15 @@ const App: React.FC = () => {
   const handleTimerComplete = () => {
     setIsTransitionStarting(true);
     
-    // Play Celebration Music
-    if (musicRef.current && !isMuted) {
-        musicRef.current.volume = 0.8;
-        musicRef.current.play().catch(e => console.log("Music blocked:", e));
+    // Play Celebration Music (YouTube)
+    if (playerRef.current && playerRef.current.playVideo) {
+        if (!isMuted) {
+            playerRef.current.unMute();
+            playerRef.current.playVideo();
+        } else {
+            playerRef.current.mute();
+            playerRef.current.playVideo();
+        }
     }
   };
 
@@ -42,64 +108,71 @@ const App: React.FC = () => {
   };
 
   const toggleMute = () => {
-    setIsMuted(prev => !prev);
+    const nextMuteState = !isMuted;
+    setIsMuted(nextMuteState);
     
-    // Toggle Music
-    if (musicRef.current) {
-        musicRef.current.muted = !musicRef.current.muted;
-        if (!musicRef.current.muted && isTransitionStarting && musicRef.current.paused) {
-             musicRef.current.play().catch(() => {});
+    // Toggle YouTube Music
+    if (playerRef.current && playerRef.current.mute) {
+        if (nextMuteState) {
+            playerRef.current.mute();
+        } else {
+            playerRef.current.unMute();
         }
     }
 
     // Toggle Tick
     if (tickRef.current) {
-        tickRef.current.muted = !tickRef.current.muted;
-        if (!tickRef.current.muted && !isTransitionStarting && tickRef.current.paused) {
-             tickRef.current.play().catch(() => {});
-        }
+        tickRef.current.muted = nextMuteState;
     }
   };
-
-  useEffect(() => {
-    console.log("App Mounted");
-    if (tickRef.current) {
-        tickRef.current.volume = 0.6;
-        const playPromise = tickRef.current.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(() => {
-                console.log("Autoplay prevented");
-                setIsMuted(true);
-                if (tickRef.current) tickRef.current.muted = true;
-                if (musicRef.current) musicRef.current.muted = true;
-            });
-        }
-    }
-  }, []);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
       
-      <audio ref={musicRef} src={MUSIC_URL} loop />
+      {/* Hidden YouTube Player */}
+      <div id="youtube-player" className="absolute pointer-events-none opacity-0 -z-50"></div>
+      
+      {/* Ticking Sound (Standard Audio) */}
       <audio ref={tickRef} src={TICK_SOUND_URL} loop />
 
-      {/* Mute Button */}
-      <button 
-        onClick={toggleMute}
-        className="absolute top-4 right-4 z-50 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors"
-      >
-        {isMuted ? (
-           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-             <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 21 12m0 0-3.75 2.25M21 12H3m3.375-3.375-1.5-1.5m6.75 9.75-1.5 1.5" />
-             <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75c0-1.33.72-2.5 1.809-3.125A12 12 0 0 0 12 6C9.274 6 6.758 6.94 4.8 8.527" />
-             <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-           </svg>
-        ) : (
-           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 animate-pulse">
-             <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-           </svg>
-        )}
-      </button>
+      {/* --- START OVERLAY (Required for Autoplay) --- */}
+      {!hasInteracted && (
+        <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 transition-opacity duration-500">
+            <div className="text-center space-y-6 animate-pulse">
+                <div className="text-6xl md:text-8xl">🎆</div>
+                <h1 className="text-2xl md:text-4xl text-yellow-400 font-bold uppercase tracking-widest font-sans">
+                    Sẵn sàng đón năm mới
+                </h1>
+                <button 
+                    onClick={handleStart}
+                    className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full text-xl shadow-[0_0_20px_rgba(220,38,38,0.6)] transition-all transform hover:scale-105 active:scale-95"
+                >
+                    Chạm để bắt đầu
+                </button>
+                <p className="text-gray-400 text-sm font-light italic">Bật âm thanh để có trải nghiệm tốt nhất</p>
+            </div>
+        </div>
+      )}
+
+      {/* Mute Button (Only show after interaction) */}
+      {hasInteracted && (
+        <button 
+            onClick={toggleMute}
+            className="absolute top-4 right-4 z-50 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors"
+        >
+            {isMuted ? (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 21 12m0 0-3.75 2.25M21 12H3m3.375-3.375-1.5-1.5m6.75 9.75-1.5 1.5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75c0-1.33.72-2.5 1.809-3.125A12 12 0 0 0 12 6C9.274 6 6.758 6.94 4.8 8.527" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+            </svg>
+            ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 animate-pulse">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+            </svg>
+            )}
+        </button>
+      )}
 
       {/* 
           LAYER 0: CELEBRATION CONTENT 
@@ -143,7 +216,7 @@ const App: React.FC = () => {
           Sits on top. Handles its own fade-out internally via props from handleTimerComplete logic inside Countdown.
           We remove it from DOM only after animation finishes to save resources.
       */}
-      {!isZoomFinished && (
+      {!isZoomFinished && hasInteracted && (
         <div className="absolute inset-0 z-20">
             <Countdown 
                 onTimerComplete={handleTimerComplete} 

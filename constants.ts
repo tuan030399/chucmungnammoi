@@ -21,8 +21,8 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// Upbeat festive music
-export const MUSIC_URL = "https://cdn.pixabay.com/audio/2022/10/28/audio_b2871b637a.mp3";
+// YouTube Video ID (extracted from https://www.youtube.com/watch?v=CameKc-m39k)
+export const YOUTUBE_VIDEO_ID = "CameKc-m39k";
 
 // Clock ticking sound
 export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2023/02/16/audio_0e6a394982.mp3";
