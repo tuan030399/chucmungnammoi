@@ -8,7 +8,8 @@ interface CountdownProps {
 }
 
 const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, onCountFinished }) => {
-  const [seconds, setSeconds] = useState(55);
+  // Start from 5 seconds
+  const [timeLeft, setTimeLeft] = useState(5);
   const [isExiting, setIsExiting] = useState(false);
   const [pop, setPop] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -17,27 +18,26 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
   const suffixCurrent = "5";
   const suffixNext = "6";
 
-  // 1. Timer Logic
+  // 1. Timer Logic (Countdown from 5 to 0)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSeconds((prev) => {
-        if (prev < 60) return prev + 1;
-        return prev;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (timeLeft > 0) {
+        const timer = setTimeout(() => {
+            setTimeLeft(prev => prev - 1);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }
+  }, [timeLeft]);
 
   // 2. Pop Effect Logic
   useEffect(() => {
     setPop(true);
     const timeout = setTimeout(() => setPop(false), 200);
     return () => clearTimeout(timeout);
-  }, [seconds]);
+  }, [timeLeft]);
 
-  // 3. Transition Logic
+  // 3. Transition Logic (When time hits 0)
   useEffect(() => {
-    if (seconds === 60) {
+    if (timeLeft === 0) {
       onCountFinished();
       const startTransitionTimeout = setTimeout(() => {
         setIsExiting(true);
@@ -46,15 +46,25 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
           onZoomComplete();
         }, 1500);
         return () => clearTimeout(cleanupTimeout);
-      }, 1000);
+      }, 1000); // Wait 1s at 0 before starting transition
       return () => clearTimeout(startTransitionTimeout);
     }
-  }, [seconds, onCountFinished, onTimerComplete, onZoomComplete]);
+  }, [timeLeft, onCountFinished, onTimerComplete, onZoomComplete]);
 
-  const displaySeconds = seconds === 60 ? "00" : seconds.toString();
+  // Formatting: Always 2 digits (05, 04, 03...)
+  const displaySeconds = timeLeft < 10 ? `0${timeLeft}` : timeLeft.toString();
+
+  // Clock Logic:
+  // If we are counting down 5 seconds to midnight (24:00:00 or 00:00:00)
+  // 5 seconds left means it is 23:59:55
+  // But visually user wants "5 -> 1". We will display the big "05", "04" in the seconds slot.
+  // And keep 23:59 fixed until the end.
+  const hourDisplay = timeLeft === 0 ? "00" : "23";
+  const minuteDisplay = timeLeft === 0 ? "00" : "59";
+  const secondDisplay = timeLeft === 0 ? "00" : displaySeconds;
 
   return (
-    // CONTAINER with explicit inline styles as failsafe
+    // CONTAINER
     <div 
         className={`w-full h-full relative flex flex-col items-center justify-center overflow-hidden transition-all duration-[1500ms] ease-in-out origin-center bg-gradient-to-b from-red-800 via-red-950 to-black ${
             isExiting ? 'opacity-0 scale-[2] blur-sm pointer-events-none' : 'opacity-100 scale-100'
@@ -62,7 +72,7 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
         style={{ color: 'white' }}
     >
       
-      {/* BACKGROUND IMAGE - Only show when loaded to prevent ugly cutouts */}
+      {/* BACKGROUND IMAGE */}
       <div className="absolute inset-0 z-0 bg-red-900/20">
         <img 
             src="https://images.unsplash.com/photo-1514416432279-50fac261ea7f?q=80&w=2592&auto=format&fit=crop" 
@@ -71,7 +81,6 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
             onLoad={() => setIsImageLoaded(true)}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
-        {/* Dark Overlay for text contrast */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60"></div>
       </div>
 
@@ -100,7 +109,7 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
                 <div className="flex items-baseline relative text-2xl md:text-5xl font-bold text-yellow-400">
                     <span>{prefix}</span>
                     <div className="relative h-[1.1em] overflow-hidden ml-1">
-                        <div className={`flex flex-col transition-transform duration-[1000ms] cubic-bezier(0.34, 1.56, 0.64, 1) ${seconds === 60 ? '-translate-y-1/2' : 'translate-y-0'}`}>
+                        <div className={`flex flex-col transition-transform duration-[1000ms] cubic-bezier(0.34, 1.56, 0.64, 1) ${timeLeft === 0 ? '-translate-y-1/2' : 'translate-y-0'}`}>
                             <span className="h-[1.1em] flex items-center justify-center tabular-nums">{suffixCurrent}</span>
                             <span className="h-[1.1em] flex items-center justify-center text-yellow-200 tabular-nums">{suffixNext}</span>
                         </div>
@@ -114,27 +123,27 @@ const Countdown: React.FC<CountdownProps> = ({ onTimerComplete, onZoomComplete, 
         <div className="w-full flex items-center justify-center gap-1 md:gap-4 bg-red-950/60 p-4 md:p-10 rounded-[2rem] md:rounded-[3rem] backdrop-blur-xl border border-red-500/20 shadow-2xl">
              {/* Hour */}
              <div className="flex flex-col items-center w-16 md:w-32">
-                <span className={`text-4xl md:text-7xl font-black text-white tabular-nums ${seconds === 60 ? 'text-green-400' : ''}`}>
-                    {seconds === 60 ? '00' : '23'}
+                <span className={`text-4xl md:text-7xl font-black text-white tabular-nums ${timeLeft === 0 ? 'text-green-400' : ''}`}>
+                    {hourDisplay}
                 </span>
                 <span className="text-[9px] md:text-xs text-red-200 uppercase tracking-widest mt-1 opacity-70">Giờ</span>
             </div>
             <span className="text-2xl md:text-6xl text-red-500/50 font-thin -mt-4">:</span>
             {/* Minute */}
             <div className="flex flex-col items-center w-16 md:w-32">
-                <span className={`text-4xl md:text-7xl font-black text-white tabular-nums ${seconds === 60 ? 'text-green-400' : ''}`}>
-                    {seconds === 60 ? '00' : '59'}
+                <span className={`text-4xl md:text-7xl font-black text-white tabular-nums ${timeLeft === 0 ? 'text-green-400' : ''}`}>
+                    {minuteDisplay}
                 </span>
                 <span className="text-[9px] md:text-xs text-red-200 uppercase tracking-widest mt-1 opacity-70">Phút</span>
             </div>
             <span className="text-2xl md:text-6xl text-red-500/50 font-thin -mt-4">:</span>
-            {/* Second */}
+            {/* Second (Displays 5, 4, 3...) */}
             <div className="flex flex-col items-center w-20 md:w-40">
                 <span className={`text-5xl md:text-8xl font-black tabular-nums transition-transform duration-200 
                     ${pop ? 'scale-110' : 'scale-100'} 
-                    ${seconds === 60 ? 'text-white' : 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]'}
+                    ${timeLeft === 0 ? 'text-white' : 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]'}
                 `}>
-                    {displaySeconds}
+                    {secondDisplay}
                 </span>
                 <span className="text-[9px] md:text-xs text-red-400 uppercase tracking-widest mt-1 font-bold">Giây</span>
             </div>

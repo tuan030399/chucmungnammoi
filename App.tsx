@@ -21,6 +21,8 @@ const App: React.FC = () => {
   const [isZoomFinished, setIsZoomFinished] = useState(false);
   
   const [isMuted, setIsMuted] = useState(false);
+  // Track if voice file fails to load
+  const [voiceError, setVoiceError] = useState(false);
   
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
@@ -61,34 +63,22 @@ const App: React.FC = () => {
     // 1. Play Ticking Sound
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
-        tickRef.current.play().catch(e => console.error("Tick play failed", e instanceof Error ? e.message : e));
+        tickRef.current.play().catch(e => console.error("Tick play failed", e instanceof Error ? e.message : "Unknown error"));
     }
 
     // 2. PRIME THE VOICE AUDIO (Critical for Mobile/Safari)
-    // We play it then immediately pause it to "unlock" the audio context
-    if (voiceRef.current) {
-        try {
-            voiceRef.current.load();
-        } catch(e) {
-            console.warn("Audio load error:", e instanceof Error ? e.message : e);
-        }
-        
+    if (voiceRef.current && !voiceError) {
+        // Unlock audio context by playing and immediately pausing
         const playPromise = voiceRef.current.play();
         if (playPromise !== undefined) {
             playPromise
                 .then(() => {
-                    // Immediately pause and rewind. We just needed the permission.
+                    // Success! Audio is unlocked. Pause immediately.
                     voiceRef.current?.pause();
                     if (voiceRef.current) voiceRef.current.currentTime = 0;
                 })
                 .catch(error => {
-                    // Swallow specific errors related to missing sources to prevent UI noise
-                    const errMsg = error instanceof Error ? error.message : String(error);
-                    if (error.name === 'NotSupportedError' || errMsg.includes('no supported sources')) {
-                        console.warn("Voice priming skipped: Audio source missing or unsupported. Fallback timer will be used.");
-                    } else {
-                        console.error("Voice priming failed:", errMsg);
-                    }
+                    console.warn("Audio priming warning (normal if loading):", error instanceof Error ? error.message : "Unknown error");
                 });
         }
     }
@@ -104,7 +94,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 1. Called when Countdown reaches "00" (Stop Ticking)
+  // 1. Called when Countdown reaches "0" (Stop Ticking)
   const handleCountFinished = () => {
      if (tickRef.current) {
          tickRef.current.pause();
@@ -112,7 +102,7 @@ const App: React.FC = () => {
      }
   };
 
-  // 2. Called when 1s hold is over and Transition STARTS
+  // 2. Called when transition actually STARTS (after 0 + hold)
   const handleTimerComplete = () => {
     setIsTransitionStarting(true);
     
@@ -133,23 +123,21 @@ const App: React.FC = () => {
     }
 
     // Play Voiceover
-    if (voiceRef.current) {
+    if (voiceRef.current && !voiceError) {
         voiceRef.current.volume = 1.0;
+        voiceRef.current.currentTime = 0; 
+        
         const playPromise = voiceRef.current.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
                  const errMsg = error instanceof Error ? error.message : String(error);
-                 if (error.name === 'NotSupportedError' || errMsg.includes('no supported sources')) {
-                    console.warn("Final voice play skipped: Source missing. Text will animate via Wishes fallback.");
-                } else {
-                    console.error("Final voice play failed", errMsg);
-                }
+                 console.error("FINAL PLAY ERROR:", errMsg);
             });
         }
     }
   };
 
-  // 3. Called when Transition ENDS (1.5s later)
+  // 3. Called when Zoom/Exiting animation ends
   const handleZoomComplete = () => {
     setIsZoomFinished(true);
   };
@@ -186,8 +174,23 @@ const App: React.FC = () => {
       
       {/* Audio Elements */}
       <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" />
-      {/* Fixed: Avoid logging 'e' (SyntheticEvent) directly to prevent circular structure error */}
-      <audio ref={voiceRef} src={VOICE_URL} preload="auto" onError={() => console.warn("Audio tag error: Failed to load voice resource")} />
+      
+      {/* 
+          VOICE AUDIO TAG 
+          Using string path from constants. Do NOT import mp3 files directly in ESM.
+      */}
+      <audio 
+        ref={voiceRef} 
+        src={VOICE_URL} 
+        preload="auto" 
+        onCanPlay={() => console.log("✅ Voice audio loaded successfully!")}
+        onError={(e) => {
+            // If audio fails, we log it and set state so Wishes component knows to use fallback
+            setVoiceError(true);
+            const target = e.target as HTMLAudioElement;
+            console.warn("⚠️ Voice audio failed to load (404/Network). App will continue with text timer fallback.", target.error?.code);
+        }} 
+      />
 
       {/* --- START OVERLAY --- */}
       {!hasInteracted && (
@@ -259,9 +262,9 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Wishes Component now uses the voiceRef from App */}
+              {/* Wishes Component now uses the voiceRef from App, and handles missing voice */}
               <div className="animate-[fadeIn_1s_ease-in_0.5s_forwards] w-full flex justify-center">
-                  <Wishes isActive={isTransitionStarting} voiceRef={voiceRef} />
+                  <Wishes isActive={isTransitionStarting} voiceRef={voiceRef} voiceError={voiceError} />
               </div>
             </div>
       </div>

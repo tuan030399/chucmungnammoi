@@ -4,9 +4,10 @@ import { SYNCED_WISHES } from '../constants';
 interface WishesProps {
   isActive: boolean;
   voiceRef: React.RefObject<HTMLAudioElement | null>;
+  voiceError?: boolean;
 }
 
-const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef }) => {
+const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef, voiceError = false }) => {
   const [activeIndex, setActiveIndex] = useState(-1);
   const animationFrameRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
@@ -50,16 +51,21 @@ const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef }) => {
 
   useEffect(() => {
     if (isActive) {
+      // IMMEDIATE CHECK: If voice failed to load, start fallback timer immediately
+      if (voiceError) {
+          console.log("Voice error detected in Wishes. Using timer fallback.");
+          isFallbackMode.current = true;
+          startTimeRef.current = Date.now() / 1000;
+      }
+
       // Start the loop
       cancelAnimationFrame(animationFrameRef.current);
       updateLoop();
       
-      // We don't play audio here anymore. App.tsx plays it.
-      // We just monitor it.
-      
-      // Fallback safety: If after 1 second, audio hasn't started (currentTime is still 0 or paused), enable fallback
+      // Fallback safety: If after 1.5 seconds, audio hasn't started (currentTime is still 0 or paused), enable fallback
+      // This handles cases where audio loaded but fails to play for some reason (e.g. strict autoplay policy)
       const safetyTimeout = setTimeout(() => {
-          if (voiceRef.current && (voiceRef.current.paused || voiceRef.current.currentTime === 0)) {
+          if (!isFallbackMode.current && voiceRef.current && (voiceRef.current.paused || voiceRef.current.currentTime === 0)) {
               console.log("Audio didn't start in time. Using fallback timer for text.");
               isFallbackMode.current = true;
               startTimeRef.current = Date.now() / 1000;
@@ -72,7 +78,7 @@ const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef }) => {
     return () => {
       cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [isActive, voiceRef]);
+  }, [isActive, voiceRef, voiceError]);
 
   return (
     <div className="z-20 w-full max-w-5xl px-4 text-center mt-2 relative">

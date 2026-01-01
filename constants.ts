@@ -3,10 +3,6 @@ export const WISHES = [
   // ... old simple wishes kept as backup if needed, but primary focus is SYNCED_WISHES
 ];
 
-// Đường dẫn file ghi âm.
-// Đã trỏ về file nội bộ của bạn. Hãy đảm bảo tên file là 'loichuc.mp3' chính xác.
-export const VOICE_URL = "/loichuc.mp3"; 
-
 export const COLORS = [
   '#FF0000', // Red
   '#FFD700', // Gold
@@ -22,6 +18,9 @@ export const YOUTUBE_VIDEO_ID = "CameKc-m39k";
 
 // Clock ticking sound - Switched to MP3 for better compatibility (Safari often fails with OGG)
 export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
+
+// Voice URL - Updated to user provided GitHub link (converted to raw for playback)
+export const VOICE_URL = "https://raw.githubusercontent.com/tuan030399/chucmungnammoi/main/loichuc.mp3";
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
