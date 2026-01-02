@@ -9,41 +9,44 @@ interface WishesProps {
 
 const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef, voiceError = false }) => {
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [showPlayButton, setShowPlayButton] = useState(false);
   const animationFrameRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const isFallbackMode = useRef<boolean>(false);
 
-  // Function to determine which line should be active
+  // Check sync logic
   const checkTime = (currentTime: number) => {
     let currentLine = -1;
+    // Tìm dòng text phù hợp nhất với thời gian hiện tại
     for (let i = 0; i < SYNCED_WISHES.length; i++) {
-      // Add a small buffer (0.1s) to make sure the first line shows immediately
-      if (currentTime >= SYNCED_WISHES[i].startTime - 0.1) {
+      // Cho phép hiển thị sớm 0.2s để khớp nhạc hơn
+      if (currentTime >= SYNCED_WISHES[i].startTime - 0.2) {
         currentLine = i;
       } else {
-        break;
+        break; // Vì array đã sort theo time, nên ko cần check tiếp
       }
     }
     setActiveIndex((prev) => (currentLine !== prev ? currentLine : prev));
   };
 
-  // Loop for smooth updates
   const updateLoop = () => {
+    // 1. Chế độ Fallback (Dựa vào đồng hồ hệ thống nếu không có file nhạc)
     if (isFallbackMode.current) {
-      // Fallback: Use system time if audio failed
       const now = Date.now() / 1000;
       const elapsed = now - startTimeRef.current;
       checkTime(elapsed);
-    } else if (voiceRef.current && !voiceRef.current.paused) {
-      // Normal: Use audio time from parent ref
+    } 
+    // 2. Chế độ Chuẩn (Dựa vào thời gian thực của file nhạc)
+    else if (voiceRef.current && !voiceRef.current.paused) {
+      setShowPlayButton(false); // Đang chạy thì ẩn nút Play
       checkTime(voiceRef.current.currentTime);
-    } else if (isActive && (!voiceRef.current || voiceRef.current.paused)) {
-       // Audio exists but isn't playing yet, or finished. 
-       // If it should be active but audio isn't moving, we might need fallback 
-       // BUT we wait a bit or check if it ended.
-       if (voiceRef.current && voiceRef.current.ended) {
-           // Do nothing, keep last state
-       }
+    } 
+    // 3. Trường hợp nhạc bị Pause dù lẽ ra phải chạy (Trình duyệt chặn)
+    else if (isActive && voiceRef.current && voiceRef.current.paused && !voiceRef.current.ended) {
+        // Nếu đã active được > 1s mà nhạc vẫn pause -> Hiện nút Play cứu hộ
+        if (voiceRef.current.currentTime === 0) {
+            setShowPlayButton(true);
+        }
     }
     
     animationFrameRef.current = requestAnimationFrame(updateLoop);
@@ -51,59 +54,72 @@ const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef, voiceError = false 
 
   useEffect(() => {
     if (isActive) {
-      // IMMEDIATE CHECK: If voice failed to load, start fallback timer immediately
       if (voiceError) {
-          console.log("Voice error detected in Wishes. Using timer fallback.");
           isFallbackMode.current = true;
           startTimeRef.current = Date.now() / 1000;
       }
-
-      // Start the loop
+      
       cancelAnimationFrame(animationFrameRef.current);
       updateLoop();
-      
-      // Fallback safety: If after 1.5 seconds, audio hasn't started (currentTime is still 0 or paused), enable fallback
-      // This handles cases where audio loaded but fails to play for some reason (e.g. strict autoplay policy)
-      const safetyTimeout = setTimeout(() => {
-          if (!isFallbackMode.current && voiceRef.current && (voiceRef.current.paused || voiceRef.current.currentTime === 0)) {
-              console.log("Audio didn't start in time. Using fallback timer for text.");
-              isFallbackMode.current = true;
-              startTimeRef.current = Date.now() / 1000;
-          }
-      }, 1500); // Wait 1.5s for audio to possibly load/start
-      
-      return () => clearTimeout(safetyTimeout);
     }
-
-    return () => {
-      cancelAnimationFrame(animationFrameRef.current);
-    };
+    return () => cancelAnimationFrame(animationFrameRef.current);
   }, [isActive, voiceRef, voiceError]);
 
+  const handleManualPlay = () => {
+      if (voiceRef.current) {
+          voiceRef.current.play().catch(console.error);
+          setShowPlayButton(false);
+      }
+  };
+
   return (
-    <div className="z-20 w-full max-w-5xl px-4 text-center mt-2 relative">
-      <div className="flex flex-col gap-4 md:gap-6 items-center justify-center min-h-[300px]">
+    <div className="z-20 w-full max-w-4xl px-2 text-center mt-2 relative">
+      
+      {/* Nút Play Cứu Hộ: Chỉ hiện khi trình duyệt chặn Autoplay */}
+      {showPlayButton && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center -mt-20">
+            <button 
+                onClick={handleManualPlay}
+                className="bg-red-600/90 text-white px-6 py-3 rounded-full animate-bounce shadow-lg font-bold flex items-center gap-2 backdrop-blur-sm border border-red-400"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                </svg>
+                BẤM ĐỂ NGHE LỜI CHÚC
+            </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 md:gap-4 items-center justify-center min-h-[300px]">
         {SYNCED_WISHES.map((item, index) => {
-          const isVisible = index <= activeIndex;
           const isCurrent = index === activeIndex;
+          const isPast = index < activeIndex;
+          
+          // Karaoke Logic:
+          // - Dòng hiện tại: Sáng rõ, to, màu vàng rực
+          // - Dòng quá khứ: Mờ đi, nhỏ lại
+          // - Dòng tương lai: Ẩn hoặc rất mờ
+          
+          let styleClass = "";
+          if (isCurrent) {
+              styleClass = "opacity-100 scale-110 text-yellow-300 drop-shadow-[0_0_20px_rgba(253,224,71,0.8)] font-extrabold z-10";
+          } else if (isPast) {
+              styleClass = "opacity-40 scale-95 text-gray-300 blur-[0.5px] font-normal";
+          } else {
+              // Future lines
+              styleClass = "opacity-0 translate-y-4 scale-90";
+          }
 
           return (
             <div 
               key={index}
-              className={`transition-all duration-700 ease-out transform ${
-                isVisible 
-                  ? 'opacity-100 translate-y-0' 
-                  : 'opacity-0 translate-y-8'
-              }`}
+              className={`transition-all duration-700 ease-out transform w-full ${styleClass}`}
             >
               <p 
                 className={`
-                  font-script text-2xl md:text-3xl lg:text-4xl leading-relaxed text-balance
-                  transition-colors duration-500 font-bold
-                  ${isCurrent ? 'text-yellow-300 drop-shadow-[0_0_15px_rgba(253,224,71,1)] scale-105' : 'text-yellow-100 scale-100'}
-                  ${index === SYNCED_WISHES.length - 1 ? 'text-red-500 mt-4 text-3xl md:text-5xl drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]' : ''}
+                  font-script text-2xl md:text-3xl lg:text-4xl leading-snug text-balance px-4
                 `}
-                style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}
+                style={isCurrent ? { textShadow: '2px 2px 0px #b91c1c' } : {}}
               >
                 {item.text}
               </p>
@@ -112,9 +128,9 @@ const Wishes: React.FC<WishesProps> = ({ isActive, voiceRef, voiceError = false 
         })}
       </div>
       
-      {/* Decorative Heart */}
-      <div className={`mt-8 text-red-500 animate-bounce text-4xl transition-opacity duration-1000 ${activeIndex >= 0 ? 'opacity-100' : 'opacity-0'}`}>
-         ♥
+      {/* Footer Decoration */}
+      <div className={`mt-8 text-red-500 animate-pulse text-4xl transition-opacity duration-1000 ${activeIndex >= 0 ? 'opacity-100' : 'opacity-0'}`}>
+         🌸
       </div>
     </div>
   );

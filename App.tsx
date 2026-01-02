@@ -15,16 +15,11 @@ declare global {
 // --- HELPER: Convert Google Drive View Link to Direct Link ---
 const getProcessedVoiceUrl = (url: string) => {
   if (!url) return "";
-  
-  // Check if it is a Google Drive View Link
   if (url.includes("drive.google.com") && url.includes("/file/d/")) {
     try {
-      // Extract ID between /file/d/ and the next /
       const id = url.split("/file/d/")[1].split("/")[0];
-      // Return direct download format
       return `https://drive.google.com/uc?export=download&id=${id}`;
     } catch (e) {
-      console.warn("Could not parse Google Drive URL, using original.");
       return url;
     }
   }
@@ -32,25 +27,20 @@ const getProcessedVoiceUrl = (url: string) => {
 };
 
 const App: React.FC = () => {
-  // Stage 0: Waiting for user interaction (Browser Autoplay Policy)
+  // Stage 0: Waiting for user interaction
   const [hasInteracted, setHasInteracted] = useState(false);
-  // Stage 1: Transition starts (Music + Fireworks begin)
+  // Stage 1: Transition starts
   const [isTransitionStarting, setIsTransitionStarting] = useState(false);
-  // Stage 2: Animation is fully done, Countdown component is unmounted
+  // Stage 2: Animation is fully done
   const [isZoomFinished, setIsZoomFinished] = useState(false);
   
   const [isMuted, setIsMuted] = useState(false);
-  // Track if voice file fails to load
   const [voiceError, setVoiceError] = useState(false);
-  
-  // Custom audio file upload state
-  const [customVoiceUrl, setCustomVoiceUrl] = useState<string | null>(null);
   
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
-  const voiceRef = useRef<HTMLAudioElement>(null); // Voiceover Ref lifted to App
-  const playerRef = useRef<any>(null); // YouTube Player Reference
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const voiceRef = useRef<HTMLAudioElement>(null); 
+  const playerRef = useRef<any>(null); 
 
   // --- YouTube API Initialization ---
   useEffect(() => {
@@ -79,29 +69,38 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // --- Interaction Handler (Fixes Autoplay) ---
+  // --- Interaction Handler (Tối ưu hóa Audio Unlock) ---
   const handleStart = () => {
     setHasInteracted(true);
     
     // 1. Play Ticking Sound
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
-        tickRef.current.play().catch(e => console.error("Tick play failed", e instanceof Error ? e.message : "Unknown error"));
+        tickRef.current.play().catch(console.error);
     }
 
-    // 2. PRIME THE VOICE AUDIO (Critical for Mobile/Safari)
+    // 2. CHIẾN THUẬT "MỒI" ÂM THANH (Audio Unlock Strategy)
+    // Để đảm bảo trình duyệt (đặc biệt là iPhone) cho phép phát nhạc sau 5 giây đếm ngược,
+    // ta phải phát nó ngay lúc bấm nút này (nhưng tắt tiếng), sau đó pause lại.
     if (voiceRef.current && !voiceError) {
-        // Unlock audio context by playing and immediately pausing
+        voiceRef.current.muted = true; // Tắt tiếng tạm thời
         const playPromise = voiceRef.current.play();
+        
         if (playPromise !== undefined) {
             playPromise
                 .then(() => {
-                    // Success! Audio is unlocked. Pause immediately.
-                    voiceRef.current?.pause();
-                    if (voiceRef.current) voiceRef.current.currentTime = 0;
+                    // Sau khi đã chạy được (unlock thành công), ta đợi một xíu rồi pause
+                    // và tua về đầu để sẵn sàng.
+                    setTimeout(() => {
+                        if (voiceRef.current) {
+                            voiceRef.current.pause();
+                            voiceRef.current.currentTime = 0;
+                            voiceRef.current.muted = false; // Bật tiếng lại để tí nữa phát thật
+                        }
+                    }, 200);
                 })
                 .catch(error => {
-                    console.warn("Audio priming warning (normal if loading):", error instanceof Error ? error.message : "Unknown error");
+                    console.warn("Audio unlock failed:", error);
                 });
         }
     }
@@ -117,7 +116,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 1. Called when Countdown reaches "0" (Stop Ticking)
   const handleCountFinished = () => {
      if (tickRef.current) {
          tickRef.current.pause();
@@ -125,42 +123,37 @@ const App: React.FC = () => {
      }
   };
 
-  // 2. Called when transition actually STARTS (after 0 + hold)
   const handleTimerComplete = () => {
     setIsTransitionStarting(true);
     
-    // Play Celebration Music (YouTube)
+    // Play Background Music
     if (playerRef.current && playerRef.current.playVideo) {
-        if (!isMuted) {
-            playerRef.current.unMute();
-        } else {
-            playerRef.current.mute();
-        }
+        if (!isMuted) playerRef.current.unMute();
+        else playerRef.current.mute();
         
-        // IMPORTANT: Lower background music volume so Voiceover is clear
         if (typeof playerRef.current.setVolume === 'function') {
-            playerRef.current.setVolume(20); // 20% Volume for background
+            playerRef.current.setVolume(20); // Nhạc nền nhỏ thôi
         }
-        
         playerRef.current.playVideo();
     }
 
-    // Play Voiceover
+    // Play Voiceover (Lúc này đã được unlock ở bước handleStart nên tỷ lệ chạy được là 99%)
     if (voiceRef.current && !voiceError) {
         voiceRef.current.volume = 1.0;
         voiceRef.current.currentTime = 0; 
+        // Đảm bảo không bị mute
+        voiceRef.current.muted = isMuted;
         
         const playPromise = voiceRef.current.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                 const errMsg = error instanceof Error ? error.message : String(error);
-                 console.error("FINAL PLAY ERROR:", errMsg);
+                 console.error("Final play failed:", error);
+                 // Nếu lỗi (hiếm), Wishes component sẽ hiện nút Play thủ công
             });
         }
     }
   };
 
-  // 3. Called when Zoom/Exiting animation ends
   const handleZoomComplete = () => {
     setIsZoomFinished(true);
   };
@@ -169,77 +162,28 @@ const App: React.FC = () => {
     const nextMuteState = !isMuted;
     setIsMuted(nextMuteState);
     
-    // Toggle YouTube Music
     if (playerRef.current && playerRef.current.mute) {
-        if (nextMuteState) {
-            playerRef.current.mute();
-        } else {
-            playerRef.current.unMute();
-        }
+        nextMuteState ? playerRef.current.mute() : playerRef.current.unMute();
     }
-
-    // Toggle Tick
-    if (tickRef.current) {
-        tickRef.current.muted = nextMuteState;
-    }
-
-    // Toggle Voice
-    if (voiceRef.current) {
-        voiceRef.current.muted = nextMuteState;
-    }
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-        const objectUrl = URL.createObjectURL(file);
-        setCustomVoiceUrl(objectUrl);
-        setVoiceError(false);
-        // Reset mute if it was muted
-        if (voiceRef.current) {
-            voiceRef.current.src = objectUrl;
-            voiceRef.current.load();
-        }
-    }
-  };
-
-  const triggerFileUpload = () => {
-    fileInputRef.current?.click();
+    if (tickRef.current) tickRef.current.muted = nextMuteState;
+    if (voiceRef.current) voiceRef.current.muted = nextMuteState;
   };
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
       
-      {/* Hidden YouTube Player */}
       <div id="youtube-player" className="absolute pointer-events-none opacity-0 -z-50"></div>
       
-      {/* Hidden File Input */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileUpload} 
-        accept="audio/*" 
-        className="hidden" 
-      />
-
-      {/* Audio Elements */}
       <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" />
       
-      {/* 
-          VOICE AUDIO TAG 
-          Uses custom uploaded URL if available, OR processes the Google Drive URL from constants.
-          NOTE: Removed crossOrigin="anonymous" to allow opaque responses from Google Drive (fix for 403/CORS issues)
-      */}
+      {/* Voice Audio: Preload auto là rất quan trọng */}
       <audio 
         ref={voiceRef} 
-        src={customVoiceUrl || getProcessedVoiceUrl(VOICE_URL)} 
+        src={getProcessedVoiceUrl(VOICE_URL)} 
         preload="auto" 
-        onCanPlay={() => console.log("✅ Voice audio loaded successfully!")}
         onError={(e) => {
-            // If audio fails, we log it and set state so Wishes component knows to use fallback
             setVoiceError(true);
-            const target = e.target as HTMLAudioElement;
-            console.warn("⚠️ Voice audio failed to load. App will continue with text timer fallback.", target.error?.code);
+            console.warn("Voice load error", (e.target as HTMLAudioElement).error?.code);
         }} 
       />
 
@@ -257,34 +201,14 @@ const App: React.FC = () => {
                 >
                     Chạm để bắt đầu
                 </button>
-                <div className="flex flex-col gap-2">
-                    <p className="text-gray-400 text-sm font-light italic">Bật âm thanh để có trải nghiệm tốt nhất</p>
-                    {/* Fallback upload button on Start Screen */}
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); triggerFileUpload(); }}
-                        className="text-xs text-yellow-500 underline hover:text-yellow-400 mt-2 z-10"
-                    >
-                       Link bị lỗi? Bấm vào đây để chọn file nhạc từ máy
-                    </button>
-                </div>
+                <p className="text-gray-400 text-sm font-light italic">Bật âm thanh để có trải nghiệm tốt nhất</p>
             </div>
         </div>
       )}
 
-      {/* Controls: Mute + Upload */}
+      {/* Controls */}
       {hasInteracted && (
         <div className="absolute top-4 right-4 z-50 flex gap-2">
-            <button 
-                onClick={triggerFileUpload}
-                title="Chọn file nhạc từ máy tính/điện thoại"
-                className="p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors group"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 group-hover:text-yellow-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l3 3-3 3m0-6h6m-6 0V5m6 14v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                </svg>
-            </button>
-
             <button 
                 onClick={toggleMute}
                 className="p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-colors"
@@ -304,12 +228,8 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* 
-          LAYER 0: CELEBRATION CONTENT 
-          Always rendered at the bottom.
-      */}
+      {/* Layer 0: Celebration */}
       <div className={`absolute inset-0 z-0 flex flex-col items-center justify-center transition-all duration-[1500ms] ease-in-out ${isTransitionStarting ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
-            {/* Celebration Background */}
             <div className="absolute inset-0 z-0">
                 <img 
                     src="https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2669&auto=format&fit=crop" 
@@ -319,13 +239,10 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 bg-black/50 bg-gradient-to-t from-red-900/80 via-transparent to-black/60"></div>
             </div>
             
-            {/* Fireworks */}
             {isTransitionStarting && <Fireworks />}
             
-            {/* Content Container */}
             <div className="absolute inset-0 flex flex-col items-center pt-10 md:pt-20 p-4 z-10 overflow-y-auto md:overflow-hidden">
               <div className="mb-4 md:mb-8 relative animate-[bounce_3s_infinite_1s] shrink-0">
-                {/* BIGGER AND HIGHER TITLE */}
                 <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-red-500 to-yellow-300 drop-shadow-[0_0_50px_rgba(234,179,8,1)] text-center tracking-tighter filter hue-rotate-15 leading-tight">
                   CHÚC MỪNG <br className="md:hidden" /> NĂM MỚI
                 </h1>
@@ -335,14 +252,13 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Wishes Component now uses the voiceRef from App, and handles missing voice */}
               <div className="animate-[fadeIn_1s_ease-in_0.5s_forwards] w-full flex justify-center">
                   <Wishes isActive={isTransitionStarting} voiceRef={voiceRef} voiceError={voiceError} />
               </div>
             </div>
       </div>
 
-      {/* LAYER 1: COUNTDOWN */}
+      {/* Layer 1: Countdown */}
       {!isZoomFinished && hasInteracted && (
         <div className="absolute inset-0 z-20">
             <Countdown 
