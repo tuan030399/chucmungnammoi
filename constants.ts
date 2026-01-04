@@ -1,6 +1,5 @@
 export const WISHES = [
   "Chúc Mừng Năm Mới! An Khang Thịnh Vượng.",
-  // ... old simple wishes kept as backup if needed, but primary focus is SYNCED_WISHES
 ];
 
 export const COLORS = [
@@ -13,20 +12,23 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// YouTube Video ID
+export const PLAYBACK_SPEED = 1.0;
+
+// 1. NHẠC NỀN (Background Music) - YouTube
 export const YOUTUBE_VIDEO_ID = "CameKc-m39k";
 
-// Clock ticking sound - Switched to MP3 for better compatibility (Safari often fails with OGG)
-export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
+// 2. GIỌNG ĐỌC (Voice) - MP3 File
+// Khi deploy, hãy uncomment dòng dưới và đảm bảo file 'loichuc.mp3' nằm trong folder 'public'
+// export const VOICE_URL = "/loichuc.mp3";
 
-// Voice URL
-// Link CDN JSDelivr từ GitHub (Ổn định nhất, không bị lỗi 403 Forbidden như Google Drive)
-export const VOICE_URL = "https://cdn.jsdelivr.net/gh/tuan030399/chucmungnammoi@main/loichuc.mp3";
+// Tạm thời dùng link online để không bị lỗi khi test:
+export const VOICE_URL = "https://cdn.pixabay.com/audio/2023/01/22/audio_d062e7423e.mp3"; // Placeholder
+
+export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
-// Dữ liệu lời chúc đồng bộ với giọng đọc
-// 'startTime': thời điểm (giây) dòng chữ bắt đầu hiện/sáng lên trong file ghi âm
+// Dữ liệu lời chúc chạy khớp với file loichuc.mp3
 export const SYNCED_WISHES = [
   {
     startTime: 0,

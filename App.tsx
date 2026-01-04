@@ -2,29 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import Countdown from './components/Countdown';
 import Fireworks from './components/Fireworks';
 import Wishes from './components/Wishes';
-import { YOUTUBE_VIDEO_ID, TICK_SOUND_URL, VOICE_URL } from './constants';
+import { YOUTUBE_VIDEO_ID, VOICE_URL, TICK_SOUND_URL } from './constants';
 
-// Type definition for window.YT
 declare global {
   interface Window {
     onYouTubeIframeAPIReady: () => void;
     YT: any;
   }
 }
-
-// --- HELPER: Convert Google Drive View Link to Direct Link ---
-const getProcessedVoiceUrl = (url: string) => {
-  if (!url) return "";
-  if (url.includes("drive.google.com") && url.includes("/file/d/")) {
-    try {
-      const id = url.split("/file/d/")[1].split("/")[0];
-      return `https://drive.google.com/uc?export=download&id=${id}`;
-    } catch (e) {
-      return url;
-    }
-  }
-  return url;
-};
 
 const App: React.FC = () => {
   // Stage 0: Waiting for user interaction
@@ -39,8 +24,8 @@ const App: React.FC = () => {
   
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
-  const voiceRef = useRef<HTMLAudioElement>(null); 
-  const playerRef = useRef<any>(null); 
+  const voiceRef = useRef<HTMLAudioElement>(null); // MP3 Player
+  const bgPlayerRef = useRef<any>(null); // YouTube Player
 
   // --- YouTube API Initialization ---
   useEffect(() => {
@@ -50,7 +35,7 @@ const App: React.FC = () => {
     firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
     window.onYouTubeIframeAPIReady = () => {
-      playerRef.current = new window.YT.Player('youtube-player', {
+      bgPlayerRef.current = new window.YT.Player('yt-bg-player', {
         height: '0',
         width: '0',
         videoId: YOUTUBE_VIDEO_ID,
@@ -62,14 +47,23 @@ const App: React.FC = () => {
         },
         events: {
           'onReady': (event: any) => {
-             event.target.setVolume(100);
+             event.target.setVolume(20); // Nhạc nền nhỏ (20%)
           }
         }
       });
     };
   }, []);
 
-  // --- Interaction Handler (Tối ưu hóa Audio Unlock) ---
+  // --- Helper to get voice time for Wishes ---
+  const getVoiceTime = () => {
+    if (voiceRef.current && !voiceError) {
+      return voiceRef.current.currentTime;
+    }
+    // Fallback: Nếu lỗi audio, có thể trả về một timer giả lập hoặc 0
+    // Ở đây trả về 0 để tránh lỗi logic, animation sẽ chạy theo fallback (nếu có) hoặc dừng.
+    return 0;
+  };
+
   const handleStart = () => {
     setHasInteracted(true);
     
@@ -78,41 +72,23 @@ const App: React.FC = () => {
         tickRef.current.volume = 0.6;
         tickRef.current.play().catch(console.error);
     }
-
-    // 2. CHIẾN THUẬT "MỒI" ÂM THANH (Audio Unlock Strategy)
-    // Để đảm bảo trình duyệt (đặc biệt là iPhone) cho phép phát nhạc sau 5 giây đếm ngược,
-    // ta phải phát nó ngay lúc bấm nút này (nhưng tắt tiếng), sau đó pause lại.
-    if (voiceRef.current && !voiceError) {
-        voiceRef.current.muted = true; // Tắt tiếng tạm thời
-        const playPromise = voiceRef.current.play();
-        
-        if (playPromise !== undefined) {
-            playPromise
-                .then(() => {
-                    // Sau khi đã chạy được (unlock thành công), ta đợi một xíu rồi pause
-                    // và tua về đầu để sẵn sàng.
-                    setTimeout(() => {
-                        if (voiceRef.current) {
-                            voiceRef.current.pause();
-                            voiceRef.current.currentTime = 0;
-                            voiceRef.current.muted = false; // Bật tiếng lại để tí nữa phát thật
-                        }
-                    }, 200);
-                })
-                .catch(error => {
-                    console.warn("Audio unlock failed:", error);
-                });
-        }
-    }
     
+    // 2. UNLOCK AUDIO (Fix mobile issue): Play empty/brief audio to get permission
+    if (voiceRef.current && !voiceError) {
+        voiceRef.current.play().then(() => {
+            // Immediately pause and reset so it's ready for later
+            voiceRef.current?.pause();
+            if(voiceRef.current) voiceRef.current.currentTime = 0;
+        }).catch(err => console.warn("Audio unlock skipped or failed:", err));
+    }
+
     // 3. Warm up YouTube player
-    if (playerRef.current && playerRef.current.playVideo) {
-        playerRef.current.playVideo();
+    if (bgPlayerRef.current && bgPlayerRef.current.playVideo) {
+        bgPlayerRef.current.playVideo();
+        // Pause immediately just to unlock
         setTimeout(() => {
-            if (!isTransitionStarting) {
-                playerRef.current.pauseVideo();
-            }
-        }, 100); 
+             if (!isTransitionStarting) bgPlayerRef.current.pauseVideo();
+        }, 100);
     }
   };
 
@@ -126,31 +102,22 @@ const App: React.FC = () => {
   const handleTimerComplete = () => {
     setIsTransitionStarting(true);
     
-    // Play Background Music
-    if (playerRef.current && playerRef.current.playVideo) {
-        if (!isMuted) playerRef.current.unMute();
-        else playerRef.current.mute();
-        
-        if (typeof playerRef.current.setVolume === 'function') {
-            playerRef.current.setVolume(20); // Nhạc nền nhỏ thôi
-        }
-        playerRef.current.playVideo();
+    // Play Background Music (YouTube)
+    if (bgPlayerRef.current && bgPlayerRef.current.playVideo) {
+        if (!isMuted) bgPlayerRef.current.unMute();
+        else bgPlayerRef.current.mute();
+        bgPlayerRef.current.playVideo();
     }
 
-    // Play Voiceover (Lúc này đã được unlock ở bước handleStart nên tỷ lệ chạy được là 99%)
+    // Play Voice/Song (MP3)
     if (voiceRef.current && !voiceError) {
-        voiceRef.current.volume = 1.0;
-        voiceRef.current.currentTime = 0; 
-        // Đảm bảo không bị mute
-        voiceRef.current.muted = isMuted;
-        
-        const playPromise = voiceRef.current.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                 console.error("Final play failed:", error);
-                 // Nếu lỗi (hiếm), Wishes component sẽ hiện nút Play thủ công
-            });
-        }
+        console.log("Starting voice playback...");
+        voiceRef.current.volume = 1.0; // Giọng to (100%)
+        voiceRef.current.currentTime = 0;
+        voiceRef.current.play().catch(e => {
+            console.error("Voice play failed:", e?.message || e);
+            // Không alert nữa để tránh làm phiền người dùng
+        });
     }
   };
 
@@ -162,28 +129,31 @@ const App: React.FC = () => {
     const nextMuteState = !isMuted;
     setIsMuted(nextMuteState);
     
-    if (playerRef.current && playerRef.current.mute) {
-        nextMuteState ? playerRef.current.mute() : playerRef.current.unMute();
+    // Mute YouTube
+    if (bgPlayerRef.current && bgPlayerRef.current.mute) {
+        nextMuteState ? bgPlayerRef.current.mute() : bgPlayerRef.current.unMute();
     }
-    if (tickRef.current) tickRef.current.muted = nextMuteState;
+    // Mute MP3
     if (voiceRef.current) voiceRef.current.muted = nextMuteState;
+    // Mute Tick
+    if (tickRef.current) tickRef.current.muted = nextMuteState;
   };
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
       
-      <div id="youtube-player" className="absolute pointer-events-none opacity-0 -z-50"></div>
+      {/* Hidden Youtube Player */}
+      <div id="yt-bg-player" className="absolute pointer-events-none opacity-0 -z-50 top-0 left-0"></div>
       
+      {/* Audio Elements */}
       <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" />
-      
-      {/* Voice Audio: Preload auto là rất quan trọng */}
       <audio 
         ref={voiceRef} 
-        src={getProcessedVoiceUrl(VOICE_URL)} 
-        preload="auto" 
-        onError={(e) => {
+        src={VOICE_URL} 
+        preload="auto"
+        onError={() => {
+            console.warn("Audio Warning: Could not load voice file. Check constants.ts or file path.");
             setVoiceError(true);
-            console.warn("Voice load error", (e.target as HTMLAudioElement).error?.code);
         }} 
       />
 
@@ -253,7 +223,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="animate-[fadeIn_1s_ease-in_0.5s_forwards] w-full flex justify-center">
-                  <Wishes isActive={isTransitionStarting} voiceRef={voiceRef} voiceError={voiceError} />
+                  <Wishes isActive={isTransitionStarting} getCurrentTime={getVoiceTime} />
               </div>
             </div>
       </div>
