@@ -12,46 +12,41 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-export const PLAYBACK_SPEED = 1.0;
+// File âm thanh duy nhất (Đã ghép Nhạc nền + Giọng đọc)
+// Bạn phải đặt tên file là "chucmung.mp3" và bỏ vào folder "public"
+export const MAIN_AUDIO_URL = "/chucmung.mp3";
 
-// 1. NHẠC NỀN (Background Music) - YouTube
-export const YOUTUBE_VIDEO_ID = "CameKc-m39k";
-
-// 2. GIỌNG ĐỌC (Voice) - MP3 File
-// Khi deploy, hãy uncomment dòng dưới và đảm bảo file 'loichuc.mp3' nằm trong folder 'public'
-// export const VOICE_URL = "/loichuc.mp3";
-
-// Tạm thời dùng link online để không bị lỗi khi test:
-export const VOICE_URL = "https://cdn.pixabay.com/audio/2023/01/22/audio_d062e7423e.mp3"; // Placeholder
-
+// Âm thanh tiếng tíc tắc khi đếm ngược (Giữ nguyên hoặc đổi file khác nếu muốn)
 export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
-// Dữ liệu lời chúc chạy khớp với file loichuc.mp3
+// Dữ liệu lời chúc chạy chữ (Karaoke)
+// LƯU Ý QUAN TRỌNG: Bạn cần nghe lại file mp3 đã ghép, xem giọng đọc bắt đầu ở giây thứ mấy
+// Ví dụ: Nhạc dạo 5 giây, giây thứ 6 mới đọc câu đầu tiên -> thì startTime: 6
 export const SYNCED_WISHES = [
   {
-    startTime: 0,
+    startTime: 0.5, // Giây thứ 0.5 của file mp3
     text: "Em Tuấn kính chúc quý cô chú anh chị, các bạn, các em:"
   },
   {
-    startTime: 4, 
+    startTime: 4.5, 
     text: "Năm mới sức khỏe vô biên, kiếm được nhiều tiền, tình duyên phơi phới."
   },
   {
-    startTime: 9, 
+    startTime: 9.5, 
     text: "Chúc ai còn lẻ bóng thì sớm 'vớ' được cực phẩm,"
   },
   {
-    startTime: 12.5, 
+    startTime: 13, 
     text: "Ai đang say đắm thì nhanh chóng về dinh,"
   },
   {
-    startTime: 15, 
+    startTime: 15.5, 
     text: "Còn ai đã có vợ xinh thì... bớt sợ vợ một tí cho anh em được nhờ!"
   },
   {
-    startTime: 19, 
+    startTime: 20, 
     text: "Chúc mừng năm mới, vạn sự như ý, tình nồng ý hợp!"
   }
 ];

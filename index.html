@@ -2,8 +2,22 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chúc Mừng Năm Mới</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Thông tin hiển thị khi chia sẻ Link lên Facebook/Zalo -->
+    <title>Chúc Mừng Năm Mới - Món Quà Bất Ngờ</title>
+    <meta name="description" content="Gửi tặng bạn một lời chúc đặc biệt nhân dịp năm mới. Nhấn vào để xem ngay!" />
+    <meta property="og:title" content="🎆 Chúc Mừng Năm Mới 2026" />
+    <meta property="og:description" content="Nhấn vào để mở món quà đặc biệt dành riêng cho bạn!" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=1200&auto=format&fit=crop" />
+    <meta property="og:url" content="https://chucmungnammoi.vercel.app" />
+    <meta property="og:type" content="website" />
+
+    <!-- Cấu hình cho Mobile (Full màn hình, thanh trạng thái đẹp) -->
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,13 +26,13 @@
       html, body, #root {
         height: 100%;
         width: 100%;
-      }
-      body {
         margin: 0;
-        overflow: hidden;
-        background-color: #000; /* Fallback color */
+        padding: 0;
+        overflow: hidden; /* Khóa cuộn tuyệt đối để giống App */
+        background-color: #000;
         font-family: 'Montserrat', sans-serif;
         color: white;
+        -webkit-tap-highlight-color: transparent; /* Bỏ highlight xanh khi bấm trên mobile */
       }
       .font-script {
         font-family: 'Dancing Script', cursive;
