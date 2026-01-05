@@ -12,21 +12,19 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// File âm thanh duy nhất (Đã ghép Nhạc nền + Giọng đọc)
-// Bạn phải đặt tên file là "chucmung.mp3" và bỏ vào folder "public"
-export const MAIN_AUDIO_URL = "/chucmung.mp3";
+// File âm thanh duy nhất (Đã sửa lại tên cho đúng với ảnh bạn gửi)
+export const MAIN_AUDIO_URL = "/loichuc.mp3";
 
-// Âm thanh tiếng tíc tắc khi đếm ngược (Giữ nguyên hoặc đổi file khác nếu muốn)
+// Âm thanh tiếng tíc tắc khi đếm ngược
 export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
 // Dữ liệu lời chúc chạy chữ (Karaoke)
-// LƯU Ý QUAN TRỌNG: Bạn cần nghe lại file mp3 đã ghép, xem giọng đọc bắt đầu ở giây thứ mấy
-// Ví dụ: Nhạc dạo 5 giây, giây thứ 6 mới đọc câu đầu tiên -> thì startTime: 6
+// LƯU Ý: Bạn hãy nghe thử file loichuc.mp3 để chỉnh sửa số giây (startTime) dưới đây cho khớp nhé
 export const SYNCED_WISHES = [
   {
-    startTime: 0.5, // Giây thứ 0.5 của file mp3
+    startTime: 0.5, // Giây thứ 0.5
     text: "Em Tuấn kính chúc quý cô chú anh chị, các bạn, các em:"
   },
   {
