@@ -13,17 +13,18 @@ const App: React.FC = () => {
   const [isZoomFinished, setIsZoomFinished] = useState(false);
   
   const [isMuted, setIsMuted] = useState(false);
+  
+  // Audio State Management
   const [audioError, setAudioError] = useState(false);
+  const [showManualPlay, setShowManualPlay] = useState(false);
   
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
-  const mainAudioRef = useRef<HTMLAudioElement>(null); // File nhạc duy nhất (đã ghép)
+  const mainAudioRef = useRef<HTMLAudioElement>(null);
 
   // Ngăn chặn cuộn trang trên điện thoại
   useEffect(() => {
     const preventScroll = (e: TouchEvent) => {
-        // Chỉ ngăn chặn nếu không phải đang scroll nội dung text dài (nếu có)
-        // Nhưng app này full màn hình nên ngăn hết cho mượt
         e.preventDefault();
     };
     document.addEventListener('touchmove', preventScroll, { passive: false });
@@ -35,7 +36,6 @@ const App: React.FC = () => {
     if (mainAudioRef.current && !audioError) {
       return mainAudioRef.current.currentTime;
     }
-    // Fallback nếu lỗi file: trả về thời gian tính theo đồng hồ hệ thống để chữ vẫn chạy
     if (isTransitionStarting) {
         return (Date.now() - transitionStartTime.current) / 1000;
     }
@@ -47,24 +47,29 @@ const App: React.FC = () => {
   const handleStart = () => {
     setHasInteracted(true);
     
-    // 1. Play Ticking Sound (Đếm ngược)
+    // 1. Play Ticking Sound
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
         tickRef.current.play().catch(console.error);
     }
     
-    // 2. QUAN TRỌNG: Mồi file nhạc chính ngay lập tức (Unlock Audio Context)
-    // Để khi đếm ngược xong, nhạc sẽ phát được ngay trên iPhone/Android
+    // 2. Mồi file nhạc chính (Unlock Audio Context)
     if (mainAudioRef.current) {
-        mainAudioRef.current.play().then(() => {
-            mainAudioRef.current?.pause(); // Dừng lại ngay
-            if(mainAudioRef.current) mainAudioRef.current.currentTime = 0; // Tua về đầu
-        }).catch(err => console.warn("Audio unlock skipped:", err));
+        mainAudioRef.current.load(); // Force load lại để chắc chắn
+        const playPromise = mainAudioRef.current.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                // Nếu play được thì pause ngay lập tức và tua về đầu
+                mainAudioRef.current?.pause();
+                if(mainAudioRef.current) mainAudioRef.current.currentTime = 0;
+            }).catch(error => {
+                console.log("Autoplay prevent (will handle later):", error);
+            });
+        }
     }
   };
 
   const handleCountFinished = () => {
-     // Dừng tiếng tíc tắc
      if (tickRef.current) {
          tickRef.current.pause();
          tickRef.current.currentTime = 0;
@@ -75,14 +80,24 @@ const App: React.FC = () => {
     setIsTransitionStarting(true);
     transitionStartTime.current = Date.now();
     
-    // 3. Phát file nhạc chính (Đã ghép)
+    // 3. Phát file nhạc chính
     if (mainAudioRef.current && !audioError) {
-        console.log("Playing main celebration audio...");
         mainAudioRef.current.volume = 1.0;
         mainAudioRef.current.currentTime = 0;
-        mainAudioRef.current.play().catch(e => {
-            console.error("Main audio play failed:", e);
-        });
+        const playPromise = mainAudioRef.current.play();
+        
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    setShowManualPlay(false); // Play thành công -> ẩn nút
+                })
+                .catch(e => {
+                    console.error("Main audio play failed (Browser blocked):", e);
+                    setShowManualPlay(true); // Play thất bại -> hiện nút cứu hộ
+                });
+        }
+    } else {
+        setShowManualPlay(true);
     }
   };
 
@@ -93,9 +108,16 @@ const App: React.FC = () => {
   const toggleMute = () => {
     const nextMuteState = !isMuted;
     setIsMuted(nextMuteState);
-    
     if (mainAudioRef.current) mainAudioRef.current.muted = nextMuteState;
     if (tickRef.current) tickRef.current.muted = nextMuteState;
+  };
+
+  const manualPlayAudio = () => {
+      if (mainAudioRef.current) {
+          mainAudioRef.current.play()
+            .then(() => setShowManualPlay(false))
+            .catch(e => alert("Vẫn không phát được: " + e.message));
+      }
   };
 
   return (
@@ -107,13 +129,14 @@ const App: React.FC = () => {
         ref={mainAudioRef} 
         src={MAIN_AUDIO_URL} 
         preload="auto"
-        onError={() => {
-            console.warn("Audio Error: Could not load main audio file.");
+        onPlay={() => setShowManualPlay(false)}
+        onError={(e) => {
+            console.error("Audio Load Error:", e);
             setAudioError(true);
         }} 
       />
 
-      {/* --- START OVERLAY (Màn hình chờ bắt buộc để mở khóa âm thanh) --- */}
+      {/* --- START OVERLAY --- */}
       {!hasInteracted && (
         <div className="absolute inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 transition-opacity duration-500">
             <div className="text-center space-y-8 animate-pulse">
@@ -139,37 +162,48 @@ const App: React.FC = () => {
                         </svg>
                     </span>
                 </button>
-                
-                <p className="text-gray-400 text-xs md:text-sm font-light italic mt-4 max-w-md mx-auto">
-                    * Lưu ý: Hãy bật âm lượng điện thoại của bạn lên để trải nghiệm trọn vẹn lời chúc.
-                </p>
             </div>
         </div>
       )}
 
-      {/* Mute/Unmute Control */}
+      {/* Mute Button */}
       {hasInteracted && (
         <div className="absolute top-4 right-4 z-50 flex gap-2 animate-[fadeIn_0.5s_ease-out]">
-            <button 
-                onClick={toggleMute}
-                className="p-3 rounded-full bg-black/30 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-colors"
-            >
-                {isMuted ? (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75 21 12m0 0-3.75 2.25M21 12H3m3.375-3.375-1.5-1.5m6.75 9.75-1.5 1.5" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75c0-1.33.72-2.5 1.809-3.125A12 12 0 0 0 12 6C9.274 6 6.758 6.94 4.8 8.527" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                </svg>
-                ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-                </svg>
-                )}
+            <button onClick={toggleMute} className="p-3 rounded-full bg-black/30 backdrop-blur-md border border-white/10 text-white hover:bg-white/10">
+                {isMuted ? "🔇" : "🔊"}
             </button>
         </div>
       )}
 
-      {/* Layer 0: Celebration (Sau khi đếm ngược xong) */}
+      {/* ERROR MESSAGE (Nếu file không tìm thấy) */}
+      {audioError && (
+        <div className="absolute top-24 left-0 w-full z-[9999] flex justify-center px-4 animate-bounce">
+             <div className="bg-red-600/90 text-white px-6 py-4 rounded-xl shadow-2xl border-2 border-red-400 backdrop-blur-md max-w-md text-center">
+                <p className="font-bold text-lg mb-1">⚠️ Lỗi: Không tìm thấy file nhạc!</p>
+                <p className="text-sm opacity-90">Hệ thống không tìm thấy file <code className="bg-black/20 px-1 rounded">loichuc.mp3</code> trong thư mục public.</p>
+            </div>
+        </div>
+      )}
+
+      {/* MANUAL PLAY BUTTON (Nút cứu hộ nếu autoplay tạch) */}
+      {showManualPlay && !audioError && isTransitionStarting && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-[fadeIn_0.5s_ease-out]">
+             <button
+                onClick={manualPlayAudio}
+                className="bg-green-600 hover:bg-green-500 text-white text-lg md:text-xl font-bold px-8 py-6 rounded-full animate-bounce shadow-[0_0_50px_rgba(34,197,94,0.6)] border-4 border-white flex items-center gap-3 whitespace-nowrap transform hover:scale-110 transition-transform"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+                  <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                </svg>
+                BẤM ĐÂY ĐỂ NGHE LỜI CHÚC
+            </button>
+            <p className="text-white text-center mt-4 text-sm font-light drop-shadow-md bg-black/50 px-2 rounded">
+                (Trình duyệt đang chặn tự động phát nhạc)
+            </p>
+        </div>
+      )}
+
+      {/* Layer 0: Celebration */}
       <div className={`absolute inset-0 z-0 flex flex-col items-center justify-center transition-all duration-[1500ms] ease-in-out ${isTransitionStarting ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
             <div className="absolute inset-0 z-0">
                 <img 
@@ -199,7 +233,7 @@ const App: React.FC = () => {
             </div>
       </div>
 
-      {/* Layer 1: Countdown (Đếm ngược) */}
+      {/* Layer 1: Countdown */}
       {!isZoomFinished && hasInteracted && (
         <div className="absolute inset-0 z-20">
             <Countdown 

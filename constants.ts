@@ -12,7 +12,8 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// File âm thanh duy nhất (Đã sửa lại tên cho đúng với ảnh bạn gửi)
+// File âm thanh duy nhất
+// Dấu / ở đầu đảm bảo nó tìm ngay thư mục gốc (public)
 export const MAIN_AUDIO_URL = "/loichuc.mp3";
 
 // Âm thanh tiếng tíc tắc khi đếm ngược
