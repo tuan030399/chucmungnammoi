@@ -12,9 +12,11 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// File âm thanh duy nhất
-// Dấu / ở đầu đảm bảo nó tìm ngay thư mục gốc (public)
+// ƯU TIÊN 1: File của bạn (Phải đặt file loichuc.mp3 vào thư mục public/)
 export const MAIN_AUDIO_URL = "/loichuc.mp3";
+
+// ƯU TIÊN 2: Link dự phòng (Nếu file trên lỗi, tự động phát link này)
+export const BACKUP_AUDIO_URL = "https://cdn.pixabay.com/audio/2022/12/23/audio_0dd524a806.mp3";
 
 // Âm thanh tiếng tíc tắc khi đếm ngược
 export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
@@ -22,7 +24,6 @@ export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
 // Dữ liệu lời chúc chạy chữ (Karaoke)
-// LƯU Ý: Bạn hãy nghe thử file loichuc.mp3 để chỉnh sửa số giây (startTime) dưới đây cho khớp nhé
 export const SYNCED_WISHES = [
   {
     startTime: 0.5, // Giây thứ 0.5

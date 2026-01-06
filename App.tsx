@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Countdown from './components/Countdown';
 import Fireworks from './components/Fireworks';
 import Wishes from './components/Wishes';
-import { MAIN_AUDIO_URL, TICK_SOUND_URL } from './constants';
+import { MAIN_AUDIO_URL, BACKUP_AUDIO_URL, TICK_SOUND_URL } from './constants';
 
 const App: React.FC = () => {
   // Stage 0: Waiting for user interaction
@@ -13,11 +13,12 @@ const App: React.FC = () => {
   const [isZoomFinished, setIsZoomFinished] = useState(false);
   
   const [isMuted, setIsMuted] = useState(false);
-  
-  // Audio State Management
-  const [audioError, setAudioError] = useState(false);
   const [showManualPlay, setShowManualPlay] = useState(false);
   
+  // Audio state
+  const [audioSrc, setAudioSrc] = useState(MAIN_AUDIO_URL);
+  const [isBackup, setIsBackup] = useState(false);
+
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
   const mainAudioRef = useRef<HTMLAudioElement>(null);
@@ -33,7 +34,7 @@ const App: React.FC = () => {
 
   // --- Helper to get audio time for Wishes ---
   const getAudioTime = () => {
-    if (mainAudioRef.current && !audioError) {
+    if (mainAudioRef.current) {
       return mainAudioRef.current.currentTime;
     }
     if (isTransitionStarting) {
@@ -44,27 +45,39 @@ const App: React.FC = () => {
   
   const transitionStartTime = useRef<number>(0);
 
+  // Auto-play effect
+  useEffect(() => {
+    if (mainAudioRef.current && isTransitionStarting) {
+         const playPromise = mainAudioRef.current.play();
+         if (playPromise !== undefined) {
+             playPromise
+                .then(() => setShowManualPlay(false))
+                .catch((e) => {
+                    // Autoplay bị chặn, hiện nút manual play
+                    setShowManualPlay(true);
+                });
+         }
+    }
+  }, [isTransitionStarting]);
+
   const handleStart = () => {
     setHasInteracted(true);
     
     // 1. Play Ticking Sound
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
-        tickRef.current.play().catch(console.error);
+        tickRef.current.play().catch(() => {});
     }
     
     // 2. Mồi file nhạc chính (Unlock Audio Context)
     if (mainAudioRef.current) {
-        mainAudioRef.current.load(); // Force load lại để chắc chắn
+        mainAudioRef.current.load(); 
         const playPromise = mainAudioRef.current.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {
-                // Nếu play được thì pause ngay lập tức và tua về đầu
                 mainAudioRef.current?.pause();
                 if(mainAudioRef.current) mainAudioRef.current.currentTime = 0;
-            }).catch(error => {
-                console.log("Autoplay prevent (will handle later):", error);
-            });
+            }).catch(() => {});
         }
     }
   };
@@ -80,20 +93,16 @@ const App: React.FC = () => {
     setIsTransitionStarting(true);
     transitionStartTime.current = Date.now();
     
-    // 3. Phát file nhạc chính
-    if (mainAudioRef.current && !audioError) {
+    if (mainAudioRef.current) {
         mainAudioRef.current.volume = 1.0;
         mainAudioRef.current.currentTime = 0;
-        const playPromise = mainAudioRef.current.play();
         
+        const playPromise = mainAudioRef.current.play();
         if (playPromise !== undefined) {
             playPromise
-                .then(() => {
-                    setShowManualPlay(false); // Play thành công -> ẩn nút
-                })
+                .then(() => setShowManualPlay(false))
                 .catch(e => {
-                    console.error("Main audio play failed (Browser blocked):", e);
-                    setShowManualPlay(true); // Play thất bại -> hiện nút cứu hộ
+                    setShowManualPlay(true);
                 });
         }
     } else {
@@ -116,7 +125,29 @@ const App: React.FC = () => {
       if (mainAudioRef.current) {
           mainAudioRef.current.play()
             .then(() => setShowManualPlay(false))
-            .catch(e => alert("Vẫn không phát được: " + e.message));
+            .catch(e => alert("Không thể phát nhạc: " + e.message));
+      }
+  };
+
+  // --- XỬ LÝ LỖI AUDIO ---
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+      const error = e.currentTarget.error;
+      console.log(`Lỗi tải nhạc: ${audioSrc}`, error);
+
+      // Nếu đang dùng file chính mà lỗi -> Chuyển sang file dự phòng ngay lập tức
+      if (audioSrc === MAIN_AUDIO_URL) {
+          console.log("-> Đang chuyển sang link dự phòng (Backup)...");
+          setAudioSrc(BACKUP_AUDIO_URL);
+          setIsBackup(true);
+          
+          // Sau khi đổi nguồn, thử phát lại ngay nếu đang trong giai đoạn phát nhạc
+          if (isTransitionStarting && mainAudioRef.current) {
+              mainAudioRef.current.load();
+              // Đợi load 1 chút rồi play
+              setTimeout(() => {
+                  mainAudioRef.current?.play().catch(console.error);
+              }, 100);
+          }
       }
   };
 
@@ -124,16 +155,15 @@ const App: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden bg-black touch-none">
       
       {/* Audio Elements */}
-      <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" />
+      <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" playsInline crossOrigin="anonymous" />
       <audio 
         ref={mainAudioRef} 
-        src={MAIN_AUDIO_URL} 
+        src={audioSrc} 
         preload="auto"
+        playsInline
+        crossOrigin="anonymous"
         onPlay={() => setShowManualPlay(false)}
-        onError={(e) => {
-            console.error("Audio Load Error:", e);
-            setAudioError(true);
-        }} 
+        onError={handleAudioError}
       />
 
       {/* --- START OVERLAY --- */}
@@ -175,30 +205,20 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* ERROR MESSAGE (Nếu file không tìm thấy) */}
-      {audioError && (
-        <div className="absolute top-24 left-0 w-full z-[9999] flex justify-center px-4 animate-bounce">
-             <div className="bg-red-600/90 text-white px-6 py-4 rounded-xl shadow-2xl border-2 border-red-400 backdrop-blur-md max-w-md text-center">
-                <p className="font-bold text-lg mb-1">⚠️ Lỗi: Không tìm thấy file nhạc!</p>
-                <p className="text-sm opacity-90">Hệ thống không tìm thấy file <code className="bg-black/20 px-1 rounded">loichuc.mp3</code> trong thư mục public.</p>
-            </div>
-        </div>
-      )}
-
-      {/* MANUAL PLAY BUTTON (Nút cứu hộ nếu autoplay tạch) */}
-      {showManualPlay && !audioError && isTransitionStarting && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-[fadeIn_0.5s_ease-out]">
+      {/* MANUAL PLAY BUTTON (Nút cứu hộ) */}
+      {showManualPlay && isTransitionStarting && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-[fadeIn_0.5s_ease-out] flex flex-col items-center w-full max-w-sm px-4 space-y-4">
              <button
                 onClick={manualPlayAudio}
-                className="bg-green-600 hover:bg-green-500 text-white text-lg md:text-xl font-bold px-8 py-6 rounded-full animate-bounce shadow-[0_0_50px_rgba(34,197,94,0.6)] border-4 border-white flex items-center gap-3 whitespace-nowrap transform hover:scale-110 transition-transform"
+                className="bg-green-600 hover:bg-green-500 text-white text-lg md:text-xl font-bold px-8 py-6 rounded-full animate-bounce shadow-[0_0_50px_rgba(34,197,94,0.6)] border-4 border-white flex items-center gap-3 whitespace-nowrap transform hover:scale-110 transition-transform cursor-pointer"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
                   <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
                 </svg>
-                BẤM ĐÂY ĐỂ NGHE LỜI CHÚC
+                {isBackup ? "PHÁT NHẠC (DỰ PHÒNG)" : "PHÁT NHẠC"}
             </button>
-            <p className="text-white text-center mt-4 text-sm font-light drop-shadow-md bg-black/50 px-2 rounded">
-                (Trình duyệt đang chặn tự động phát nhạc)
+            <p className="text-white bg-black/50 px-2 py-1 rounded text-sm text-center">
+                {isBackup ? "Đã chuyển sang nhạc online do không tìm thấy file của bạn." : "Chạm để phát nhạc"}
             </p>
         </div>
       )}
