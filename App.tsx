@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Countdown from './components/Countdown';
 import Fireworks from './components/Fireworks';
 import Wishes from './components/Wishes';
-import { MAIN_AUDIO_URL, BACKUP_AUDIO_URL, TICK_SOUND_URL } from './constants';
+import { LOCAL_AUDIO_URL, TICK_SOUND_URL } from './constants';
 
 const App: React.FC = () => {
   // Stage 0: Waiting for user interaction
@@ -13,15 +13,11 @@ const App: React.FC = () => {
   const [isZoomFinished, setIsZoomFinished] = useState(false);
   
   const [isMuted, setIsMuted] = useState(false);
-  const [showManualPlay, setShowManualPlay] = useState(false);
   
-  // Audio state
-  const [audioSrc, setAudioSrc] = useState(MAIN_AUDIO_URL);
-  const [isBackup, setIsBackup] = useState(false);
-
   // Audio Refs
   const tickRef = useRef<HTMLAudioElement>(null);
   const mainAudioRef = useRef<HTMLAudioElement>(null);
+  const transitionStartTime = useRef<number>(0);
 
   // Ngăn chặn cuộn trang trên điện thoại
   useEffect(() => {
@@ -32,7 +28,7 @@ const App: React.FC = () => {
     return () => document.removeEventListener('touchmove', preventScroll);
   }, []);
 
-  // --- Helper to get audio time for Wishes ---
+  // Helper lấy thời gian nhạc
   const getAudioTime = () => {
     if (mainAudioRef.current) {
       return mainAudioRef.current.currentTime;
@@ -42,43 +38,34 @@ const App: React.FC = () => {
     }
     return 0;
   };
-  
-  const transitionStartTime = useRef<number>(0);
-
-  // Auto-play effect
-  useEffect(() => {
-    if (mainAudioRef.current && isTransitionStarting) {
-         const playPromise = mainAudioRef.current.play();
-         if (playPromise !== undefined) {
-             playPromise
-                .then(() => setShowManualPlay(false))
-                .catch((e) => {
-                    // Autoplay bị chặn, hiện nút manual play
-                    setShowManualPlay(true);
-                });
-         }
-    }
-  }, [isTransitionStarting]);
 
   const handleStart = () => {
     setHasInteracted(true);
     
-    // 1. Play Ticking Sound
+    // --- QUAN TRỌNG: MỞ KHÓA AUDIO CHO TRÌNH DUYỆT ĐIỆN THOẠI ---
+    // Ngay khoảnh khắc người dùng chạm vào nút "Mở Quà", ta phải gọi lệnh .play()
+    
+    // 1. Mở khóa tiếng tích tắc
     if (tickRef.current) {
         tickRef.current.volume = 0.6;
         tickRef.current.play().catch(() => {});
     }
     
-    // 2. Mồi file nhạc chính (Unlock Audio Context)
+    // 2. Mở khóa nhạc chính (Phát rồi Pause ngay lập tức)
+    // Điều này đánh lừa trình duyệt rằng "người dùng đã cho phép phát nhạc này"
     if (mainAudioRef.current) {
-        mainAudioRef.current.load(); 
-        const playPromise = mainAudioRef.current.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                mainAudioRef.current?.pause();
-                if(mainAudioRef.current) mainAudioRef.current.currentTime = 0;
-            }).catch(() => {});
-        }
+        mainAudioRef.current.volume = 0; // Tắt tiếng tạm thời
+        mainAudioRef.current.play().then(() => {
+            mainAudioRef.current?.pause();
+            if(mainAudioRef.current) {
+                mainAudioRef.current.currentTime = 0;
+                mainAudioRef.current.volume = 1; // Trả lại volume to
+            }
+        }).catch((e) => {
+            // Nếu vào đây trên Preview -> Là do chưa có file nhạc.
+            // Nếu vào đây trên Web thật -> Là lỗi trình duyệt chặn (ít khi xảy ra nếu đã click)
+            console.log("Pre-load status:", e.message);
+        });
     }
   };
 
@@ -93,20 +80,14 @@ const App: React.FC = () => {
     setIsTransitionStarting(true);
     transitionStartTime.current = Date.now();
     
+    // LÚC NÀY NHẠC CHÍNH SẼ TỰ PHÁT
     if (mainAudioRef.current) {
         mainAudioRef.current.volume = 1.0;
         mainAudioRef.current.currentTime = 0;
-        
         const playPromise = mainAudioRef.current.play();
         if (playPromise !== undefined) {
-            playPromise
-                .then(() => setShowManualPlay(false))
-                .catch(e => {
-                    setShowManualPlay(true);
-                });
+             playPromise.catch(e => console.log("Auto-play blocked or file missing:", e));
         }
-    } else {
-        setShowManualPlay(true);
     }
   };
 
@@ -121,49 +102,28 @@ const App: React.FC = () => {
     if (tickRef.current) tickRef.current.muted = nextMuteState;
   };
 
-  const manualPlayAudio = () => {
-      if (mainAudioRef.current) {
-          mainAudioRef.current.play()
-            .then(() => setShowManualPlay(false))
-            .catch(e => alert("Không thể phát nhạc: " + e.message));
-      }
-  };
-
-  // --- XỬ LÝ LỖI AUDIO ---
-  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-      const error = e.currentTarget.error;
-      console.log(`Lỗi tải nhạc: ${audioSrc}`, error);
-
-      // Nếu đang dùng file chính mà lỗi -> Chuyển sang file dự phòng ngay lập tức
-      if (audioSrc === MAIN_AUDIO_URL) {
-          console.log("-> Đang chuyển sang link dự phòng (Backup)...");
-          setAudioSrc(BACKUP_AUDIO_URL);
-          setIsBackup(true);
-          
-          // Sau khi đổi nguồn, thử phát lại ngay nếu đang trong giai đoạn phát nhạc
-          if (isTransitionStarting && mainAudioRef.current) {
-              mainAudioRef.current.load();
-              // Đợi load 1 chút rồi play
-              setTimeout(() => {
-                  mainAudioRef.current?.play().catch(console.error);
-              }, 100);
-          }
-      }
-  };
-
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black touch-none">
       
-      {/* Audio Elements */}
-      <audio ref={tickRef} src={TICK_SOUND_URL} loop preload="auto" playsInline crossOrigin="anonymous" />
+      {/* 
+         AUDIO TAGS
+         - Không dùng crossOrigin cho file nội bộ (quan trọng).
+         - type="audio/mpeg" giúp trình duyệt nhận diện file nhanh hơn.
+      */}
+      <audio 
+        ref={tickRef} 
+        src={TICK_SOUND_URL} 
+        loop 
+        preload="auto" 
+        playsInline 
+        crossOrigin="anonymous" 
+      />
+      
       <audio 
         ref={mainAudioRef} 
-        src={audioSrc} 
+        src={LOCAL_AUDIO_URL} 
         preload="auto"
         playsInline
-        crossOrigin="anonymous"
-        onPlay={() => setShowManualPlay(false)}
-        onError={handleAudioError}
       />
 
       {/* --- START OVERLAY --- */}
@@ -202,24 +162,6 @@ const App: React.FC = () => {
             <button onClick={toggleMute} className="p-3 rounded-full bg-black/30 backdrop-blur-md border border-white/10 text-white hover:bg-white/10">
                 {isMuted ? "🔇" : "🔊"}
             </button>
-        </div>
-      )}
-
-      {/* MANUAL PLAY BUTTON (Nút cứu hộ) */}
-      {showManualPlay && isTransitionStarting && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-[fadeIn_0.5s_ease-out] flex flex-col items-center w-full max-w-sm px-4 space-y-4">
-             <button
-                onClick={manualPlayAudio}
-                className="bg-green-600 hover:bg-green-500 text-white text-lg md:text-xl font-bold px-8 py-6 rounded-full animate-bounce shadow-[0_0_50px_rgba(34,197,94,0.6)] border-4 border-white flex items-center gap-3 whitespace-nowrap transform hover:scale-110 transition-transform cursor-pointer"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
-                  <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-                </svg>
-                {isBackup ? "PHÁT NHẠC (DỰ PHÒNG)" : "PHÁT NHẠC"}
-            </button>
-            <p className="text-white bg-black/50 px-2 py-1 rounded text-sm text-center">
-                {isBackup ? "Đã chuyển sang nhạc online do không tìm thấy file của bạn." : "Chạm để phát nhạc"}
-            </p>
         </div>
       )}
 

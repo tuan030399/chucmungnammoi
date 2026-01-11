@@ -12,14 +12,12 @@ export const COLORS = [
   '#FFFFFF', // White
 ];
 
-// ƯU TIÊN 1: File của bạn (Phải đặt file loichuc.mp3 vào thư mục public/)
-export const MAIN_AUDIO_URL = "/loichuc.mp3";
+// CHỈ SỬ DỤNG 1 FILE DUY NHẤT
+// Đường dẫn bắt đầu bằng dấu / để trỏ về thư mục gốc (public)
+export const LOCAL_AUDIO_URL = "/nhacnen.mp3";
 
-// ƯU TIÊN 2: Link dự phòng (Nếu file trên lỗi, tự động phát link này)
-export const BACKUP_AUDIO_URL = "https://cdn.pixabay.com/audio/2022/12/23/audio_0dd524a806.mp3";
-
-// Âm thanh tiếng tíc tắc khi đếm ngược
-export const TICK_SOUND_URL = "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3";
+// Link tiếng tích tắc dự phòng (Online)
+export const TICK_SOUND_URL = "https://upload.wikimedia.org/wikipedia/commons/8/8d/Clock-ticking-sound.mp3";
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
 
