@@ -9,12 +9,11 @@ export const EXPLOSION_SOUNDS = [
 ];
 
 export const REWARDS = [
-  { type: 'money', value: '5.000', weight: 40 },
-  { type: 'money', value: '10.000', weight: 30 },
-  { type: 'money', value: '20.000', weight: 15 },
-  { type: 'money', value: '50.000', weight: 5 },
-  { type: 'wish', value: 'Vạn Sự Như Ý', weight: 5 },
-  { type: 'wish', value: 'An Khang Thịnh Vượng', weight: 5 }
+  { type: 'money', value: '10.000', weight: 35 }, // Cao nhất (35%)
+  { type: 'money', value: '15.000', weight: 35 }, // Cao nhất (35%)
+  { type: 'money', value: '5.000', weight: 20 },  // Trung bình (20%)
+  { type: 'money', value: '30.000', weight: 8 },  // Ít (8%)
+  { type: 'money', value: '50.000', weight: 2 }   // Hiếm (2%)
 ];
 
 export const getRandomReward = () => {
