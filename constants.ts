@@ -1,50 +1,30 @@
-export const WISHES = [
-  "Chúc Mừng Năm Mới! An Khang Thịnh Vượng.",
-];
-
 export const COLORS = [
-  '#FF0000', // Red
-  '#FFD700', // Gold
-  '#FFA500', // Orange
-  '#00FF00', // Green
-  '#00FFFF', // Cyan
-  '#FF00FF', // Magenta
-  '#FFFFFF', // White
+  '#FF0000', '#FFD700', '#FFA500', '#00FF00', '#00FFFF', '#FF00FF', '#FFFFFF'
 ];
 
-// CHỈ SỬ DỤNG 1 FILE DUY NHẤT
-// Đường dẫn bắt đầu bằng dấu / để trỏ về thư mục gốc (public)
-export const LOCAL_AUDIO_URL = "/nhacnen.mp3";
+export const EXPLOSION_SOUNDS = [
+  "https://upload.wikimedia.org/wikipedia/commons/transcoded/7/77/Explosion_01.ogg/Explosion_01.ogg.mp3",
+  "https://upload.wikimedia.org/wikipedia/commons/transcoded/2/23/Explosion_02.ogg/Explosion_02.ogg.mp3", 
+  "https://upload.wikimedia.org/wikipedia/commons/transcoded/8/87/Explosion_03.ogg/Explosion_03.ogg.mp3"
+];
 
-// Link tiếng tích tắc dự phòng (Online)
-export const TICK_SOUND_URL = "https://upload.wikimedia.org/wikipedia/commons/8/8d/Clock-ticking-sound.mp3";
+export const REWARDS = [
+  { type: 'money', value: '5.000', weight: 40 },
+  { type: 'money', value: '10.000', weight: 30 },
+  { type: 'money', value: '20.000', weight: 15 },
+  { type: 'money', value: '50.000', weight: 5 },
+  { type: 'wish', value: 'Vạn Sự Như Ý', weight: 5 },
+  { type: 'wish', value: 'An Khang Thịnh Vượng', weight: 5 }
+];
+
+export const getRandomReward = () => {
+  const totalWeight = REWARDS.reduce((sum, r) => sum + r.weight, 0);
+  let random = Math.random() * totalWeight;
+  for (const reward of REWARDS) {
+    if (random < reward.weight) return reward;
+    random -= reward.weight;
+  }
+  return REWARDS[0];
+};
 
 export const FALLING_ITEMS = ["🏮", "🌸", "🌼", "🧧", "✨"];
-
-// Dữ liệu lời chúc chạy chữ (Karaoke)
-export const SYNCED_WISHES = [
-  {
-    startTime: 0.5, // Giây thứ 0.5
-    text: "Em Tuấn kính chúc quý cô chú anh chị, các bạn, các em:"
-  },
-  {
-    startTime: 4.5, 
-    text: "Năm mới sức khỏe vô biên, kiếm được nhiều tiền, tình duyên phơi phới."
-  },
-  {
-    startTime: 9.5, 
-    text: "Chúc ai còn lẻ bóng thì sớm 'vớ' được cực phẩm,"
-  },
-  {
-    startTime: 13, 
-    text: "Ai đang say đắm thì nhanh chóng về dinh,"
-  },
-  {
-    startTime: 15.5, 
-    text: "Còn ai đã có vợ xinh thì... bớt sợ vợ một tí cho anh em được nhờ!"
-  },
-  {
-    startTime: 20, 
-    text: "Chúc mừng năm mới, vạn sự như ý, tình nồng ý hợp!"
-  }
-];
