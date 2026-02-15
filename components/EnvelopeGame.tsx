@@ -23,17 +23,19 @@ const EnvelopeGame: React.FC<EnvelopeProps> = ({ onOpen, disabled }) => {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center z-20 p-4">
+    <div className="absolute inset-0 flex flex-col items-center justify-center z-20 p-2 md:p-4">
       {/* Tiêu đề hướng dẫn */}
       {!disabled && (
-        <div className="mb-8 text-center animate-pulse">
-            <h2 className="text-yellow-200 text-lg md:text-xl font-light uppercase tracking-[0.3em]">Mời bạn chọn một bao lì xì</h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent mx-auto mt-2"></div>
+        <div className="mb-4 md:mb-8 text-center animate-pulse relative z-30">
+            <h2 className="text-yellow-200 text-sm md:text-xl font-light uppercase tracking-[0.2em] md:tracking-[0.3em]">
+              Mời bạn chọn một bao lì xì
+            </h2>
+            <div className="w-16 md:w-24 h-0.5 md:h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent mx-auto mt-2"></div>
         </div>
       )}
 
-      {/* Grid Layout sang trọng */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-5xl w-full perspective-1000">
+      {/* Grid Layout sang trọng - Mobile: 4 cột (2 dòng) để gọn màn hình */}
+      <div className="grid grid-cols-4 md:grid-cols-4 gap-2 md:gap-10 max-w-5xl w-full perspective-1000 px-2 md:px-0">
         {envelopes.map((id) => {
           const isSelected = selectedId === id;
           const isHidden = selectedId !== null && !isSelected;
@@ -45,7 +47,9 @@ const EnvelopeGame: React.FC<EnvelopeProps> = ({ onOpen, disabled }) => {
               className={`
                 relative group cursor-pointer transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
                 ${isHidden ? 'opacity-0 scale-50 pointer-events-none translate-y-20' : 'opacity-100'}
-                ${isSelected ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.5] z-50 pointer-events-none' : 'hover:-translate-y-4 hover:rotate-1'}
+                ${isSelected 
+                    ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[3.5] md:scale-[1.8] z-50 pointer-events-none' 
+                    : 'hover:-translate-y-2 md:hover:-translate-y-4 hover:rotate-1'}
               `}
               style={{
                 transitionDelay: isHidden ? `${id * 50}ms` : '0ms'
@@ -53,9 +57,9 @@ const EnvelopeGame: React.FC<EnvelopeProps> = ({ onOpen, disabled }) => {
             >
               {/* --- ENVELOPE DESIGN --- */}
               <div className={`
-                relative w-full aspect-[3/4] rounded-lg shadow-2xl overflow-hidden
+                relative w-full aspect-[3/4] rounded md:rounded-lg shadow-lg md:shadow-2xl overflow-hidden
                 bg-gradient-to-br from-red-600 to-red-900
-                border-[1px] border-yellow-500/30
+                border-[0.5px] md:border-[1px] border-yellow-500/30
                 ${isSelected ? 'animate-shake-open' : ''}
               `}>
                 {/* Texture Giấy */}
@@ -67,10 +71,10 @@ const EnvelopeGame: React.FC<EnvelopeProps> = ({ onOpen, disabled }) => {
                 </div>
 
                 {/* Thân bao - Họa tiết */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pt-10 z-10">
-                    <div className="w-[80%] h-[80%] border border-yellow-500/20 rounded flex items-center justify-center">
-                         <div className="w-16 h-16 md:w-20 md:h-20 bg-yellow-500 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(234,179,8,0.6)]">
-                            <span className="text-red-800 font-script font-bold text-3xl md:text-4xl">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pt-6 md:pt-10 z-10">
+                    <div className="w-[75%] h-[75%] border border-yellow-500/20 rounded flex items-center justify-center">
+                         <div className="w-8 h-8 md:w-20 md:h-20 bg-yellow-500 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(234,179,8,0.6)]">
+                            <span className="text-red-800 font-script font-bold text-sm md:text-4xl">
                                 {id % 2 === 0 ? 'Tết' : 'Lộc'}
                             </span>
                          </div>
@@ -78,15 +82,15 @@ const EnvelopeGame: React.FC<EnvelopeProps> = ({ onOpen, disabled }) => {
                 </div>
                 
                 {/* Dây tua rua trang trí (Giả lập) */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-1 h-12 bg-yellow-500/50 z-30"></div>
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-yellow-400 shadow-lg z-30"></div>
+                <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 w-0.5 md:w-1 h-6 md:h-12 bg-yellow-500/50 z-30"></div>
+                <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 w-2 md:w-4 h-2 md:h-4 rounded-full bg-yellow-400 shadow-lg z-30"></div>
 
                 {/* Hiệu ứng bóng sáng (Sheen) */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
               </div>
               
               {/* Bóng đổ dưới chân để tạo cảm giác 3D */}
-              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[80%] h-4 bg-black/40 blur-md rounded-[100%] transition-all duration-300 group-hover:w-[60%] group-hover:opacity-20"></div>
+              <div className="absolute -bottom-2 md:-bottom-4 left-1/2 -translate-x-1/2 w-[80%] h-2 md:h-4 bg-black/40 blur-sm md:blur-md rounded-[100%] transition-all duration-300 group-hover:w-[60%] group-hover:opacity-20"></div>
             </div>
           );
         })}
